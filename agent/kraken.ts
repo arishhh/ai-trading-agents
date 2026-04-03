@@ -3,6 +3,8 @@ import { promisify } from 'util'
 
 const execAsync = promisify(exec)
 
+const KRAKEN_BIN = process.env.KRAKEN_BIN_PATH || '/root/.cargo/bin/kraken'
+
 /**
  * Shell execute a kraken command and parse JSON output.
  * @param command The kraken command to run (e.g. 'ticker BTCUSD')
@@ -10,7 +12,7 @@ const execAsync = promisify(exec)
  */
 async function krakenExec(command: string) {
   try {
-    const fullCommand = `kraken ${command} -o json`
+    const fullCommand = `${KRAKEN_BIN} ${command} -o json`
     const { stdout, stderr } = await execAsync(fullCommand)
 
     if (stderr && !stdout) {

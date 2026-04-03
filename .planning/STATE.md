@@ -4,7 +4,7 @@ milestone: v1.0
 milestone_name: milestone
 status: planning
 stopped_at: Architectural documentation finalized; Convex schema defined.
-last_updated: "2026-04-03T08:26:00.000Z"
+last_updated: "2026-04-03T08:47:00.000Z"
 last_activity: 2026-04-03
 progress:
   total_phases: 4
@@ -80,6 +80,7 @@ None yet.
 | node_version_setup | Node Version Setup (Create .node-version, .nvmrc, Update package.json) | 2026-04-03 | [x] Completed |
 | env_setup | Environment Setup (Create .env with Groq and Convex keys) | 2026-04-03 | [x] Completed |
 | railway_fix | Railway Fix (nixpacks.toml, tsx alignment) | 2026-04-03 | [x] Completed |
+| railway_path_fix | Railway Path Fix (Kraken bin path, Cargo env sourcing) | 2026-04-03 | [x] Completed |
 
 ## Session Continuity
 

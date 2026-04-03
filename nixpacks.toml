@@ -1,5 +1,9 @@
-﻿[phases.build]
-cmds = ["npm run setup:kraken", "npx convex deploy"]
+[phases.build]
+cmds = [
+  "npm ci",
+  "npm run setup:kraken",
+  "source $HOME/.cargo/env && npx convex deploy"
+]
 
 [start]
-cmd = "npx tsx agent/loop.ts"
+cmd = "source $HOME/.cargo/env && npx tsx agent/loop.ts"
