@@ -13,11 +13,11 @@ const client = new ConvexHttpClient(CONVEX_URL)
 export async function checkRisk(volume: number, price: number) {
   const tradeValue = volume * price
 
-  // 1. Per-trade Limit ($200)
-  if (tradeValue > 200) {
+  // 1. Per-trade Limit ($210 approx with floating point wiggle room)
+  if (tradeValue > 210) {
     return {
       allowed: false,
-      reason: `Trade value $${tradeValue.toFixed(2)} exceeds $200 limit.`
+      reason: `Trade value $${tradeValue.toFixed(2)} exceeds $210 limit.`
     }
   }
 

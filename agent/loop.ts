@@ -48,6 +48,13 @@ async function runCycle() {
     // 3. Get AI decision
     const decision = await claude.makeDecision(marketData)
     console.log(`[${timeStr}] AI Decision: ${decision.action.toUpperCase()} | Reason: ${decision.reason}`)
+    
+    // Normalize volume to prevent math expression errors and hard cap at $200
+    if (typeof decision.volume === 'number') {
+      decision.volume = Math.min(decision.volume, 200 / currentPrice)
+    } else {
+      decision.volume = 200 / currentPrice
+    }
 
     let executed = false
     let krakenResponse: any = null
