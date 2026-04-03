@@ -1,5 +1,5 @@
 import { ConvexHttpClient } from "convex/browser"
-import { api } from "../convex/_generated/api"
+import { anyApi } from "convex/server"
 import * as kraken from "./kraken"
 import * as claude from "./claude"
 import { checkRisk } from "./risk"
@@ -7,7 +7,7 @@ import dotenv from "dotenv"
 
 dotenv.config()
 
-const CONVEX_URL = process.env.CONVEX_URL || ""
+const CONVEX_URL = (process.env.CONVEX_URL || "").replace(/\/$/, '')
 if (!CONVEX_URL) {
   console.error("FATAL: CONVEX_URL is not set in environment variables.")
 } else {
@@ -26,7 +26,7 @@ async function runCycle() {
   
   try {
     // 1. Check if agent is paused in Convex
-    const pausedState = await client.query(api.state.getValue, { key: "paused" })
+    const pausedState = await client.query(anyApi.state.getValue, { key: "paused" })
     if (pausedState?.value === true) {
       console.log(`[${timeStr}] Agent paused, skipping cycle.`)
       return
@@ -74,7 +74,7 @@ async function runCycle() {
 
     // 5. Log decision and final state to Convex
     const finalStatus = await kraken.getPaperStatus()
-    await client.mutation(api.decisions.insertDecision, {
+    await client.mutation(anyApi.decisions.insertDecision, {
       timestamp,
       action: decision.action,
       volume: decision.volume || 0,
@@ -93,7 +93,7 @@ async function runCycle() {
     
     // Log error row to Convex
     try {
-      await client.mutation(api.decisions.insertDecision, {
+      await client.mutation(anyApi.decisions.insertDecision, {
         timestamp,
         action: "error",
         volume: 0,
@@ -127,7 +127,7 @@ async function main() {
 
   // Set startup heartbeat
   try {
-    await client.mutation(api.state.upsertValue, {
+    await client.mutation(anyApi.state.upsertValue, {
       key: "agentStarted",
       value: Date.now()
     })

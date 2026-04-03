@@ -4,7 +4,7 @@ milestone: v1.0
 milestone_name: milestone
 status: planning
 stopped_at: Architectural documentation finalized; Convex schema defined.
-last_updated: "2026-04-03T10:37:00.000Z"
+last_updated: "2026-04-03T11:56:00.000Z"
 last_activity: 2026-04-03
 progress:
   total_phases: 4
@@ -86,6 +86,7 @@ None yet.
 | build_binary_persistence | Build Binary Persistence (Install to /app/bin during build) | 2026-04-03 | [x] Completed |
 | docker_deployment | Docker Deployment (Migration from Nixpacks) | 2026-04-03 | [x] Completed |
 | convex_error_logging | Convex Error Logging (Graceful mutation handling) | 2026-04-03 | [x] Completed |
+| convex_connection_fix | Convex Connection Fix (Trailing slash, anyApi) | 2026-04-03 | [x] Completed |
 
 ## Session Continuity
 
