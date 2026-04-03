@@ -4,7 +4,7 @@ milestone: v1.0
 milestone_name: milestone
 status: planning
 stopped_at: Architectural documentation finalized; Convex schema defined.
-last_updated: "2026-04-03T08:53:00.000Z"
+last_updated: "2026-04-03T08:59:30.000Z"
 last_activity: 2026-04-03
 progress:
   total_phases: 4
@@ -82,6 +82,7 @@ None yet.
 | railway_fix | Railway Fix (nixpacks.toml, tsx alignment) | 2026-04-03 | [x] Completed |
 | railway_path_fix | Railway Path Fix (Kraken bin path, Cargo env sourcing) | 2026-04-03 | [x] Completed |
 | railway_binary_persistence | Railway Binary Persistence (Install to /usr/local/bin) | 2026-04-03 | [x] Completed |
+| runtime_kraken_install | Runtime Kraken Install (start.sh for Railway) | 2026-04-03 | [x] Completed |
 
 ## Session Continuity
 

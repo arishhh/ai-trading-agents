@@ -4,9 +4,8 @@
   "description": "Autonomous AI crypto trading agent for Kraken CLI + Convex",
   "main": "agent/loop.ts",
   "scripts": {
-    "agent": "tsx agent/loop.ts",
-    "setup:kraken": "curl --proto '=https' --tlsv1.2 -LsSf https://github.com/krakenfx/kraken-cli/releases/latest/download/kraken-cli-installer.sh | sh && cp /root/.cargo/bin/kraken /usr/local/bin/kraken && chmod +x /usr/local/bin/kraken",
-    "build": "npm run setup:kraken && npx convex deploy"
+    "agent": "bash start.sh",
+    "build": "npx convex deploy"
   },
   "dependencies": {
     "groq-sdk": "^0.13.0",
