@@ -1,0 +1,5 @@
+﻿[phases.build]
+cmds = ["npm run setup:kraken", "npx convex deploy"]
+
+[start]
+cmd = "npx tsx agent/loop.ts"
