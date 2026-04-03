@@ -1,9 +1,13 @@
+[phases.install]
+cmds = ["npm ci"]
+
 [phases.build]
 cmds = [
-  "npm ci",
-  "npm run setup:kraken",
-  "source $HOME/.cargo/env && npx convex deploy"
+  "curl --proto '=https' --tlsv1.2 -LsSf https://github.com/krakenfx/kraken-cli/releases/latest/download/kraken-cli-installer.sh | sh",
+  "cp /root/.cargo/bin/kraken /usr/local/bin/kraken",
+  "chmod +x /usr/local/bin/kraken",
+  "npx convex deploy"
 ]
 
 [start]
-cmd = "source $HOME/.cargo/env && npx tsx agent/loop.ts"
+cmd = "npx tsx agent/loop.ts"
