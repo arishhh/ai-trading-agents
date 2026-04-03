@@ -3,8 +3,8 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: planning
-stopped_at: Architectural documentation finalized; Convex schema defined.
-last_updated: "2026-04-03T12:09:00.000Z"
+stopped_at: EIP-712 trade intent signing implemented and deployed to Railway.
+last_updated: "2026-04-03T13:51:00.000Z"
 last_activity: 2026-04-03
 progress:
   total_phases: 4
@@ -88,9 +88,10 @@ None yet.
 | convex_error_logging | Convex Error Logging (Graceful mutation handling) | 2026-04-03 | [x] Completed |
 | convex_connection_fix | Convex Connection Fix (Trailing slash, anyApi) | 2026-04-03 | [x] Completed |
 | groq_model_update | Groq Model Update (llama-3.1 to llama-3.3) | 2026-04-03 | [x] Completed |
+| 260403-pzz | EIP-712 trade intent signing — erc8004.ts, loop.ts wiring, schema update | 2026-04-03 | [x] Completed |
 
 ## Session Continuity
 
-Last session: 2026-04-02 09:15
-Stopped at: Architectural documentation finalized; Convex schema defined.
+Last session: 2026-04-03 18:51
+Stopped at: EIP-712 signing wired into loop.ts; pushed to Railway (d91aa12).
 Resume file: None
