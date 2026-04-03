@@ -119,20 +119,30 @@ async function main() {
   }
 
   // Set startup heartbeat
-  await client.mutation(api.state.upsertValue, {
-    key: "agentStarted",
-    value: Date.now()
-  })
+  try {
+    await client.mutation(api.state.upsertValue, {
+      key: "agentStarted",
+      value: Date.now()
+    })
+  } catch (error: any) {
+    console.error("Startup heartbeat failed:", error.message)
+    // If it's a function not found error, it means we might need a deploy
+    if (error.message.includes("Function not found")) {
+      console.error("TIP: Ensure your Convex functions are deployed to the current CONVEX_URL.")
+    }
+  }
 
   // Start the 5-minute loop
   const interval = parseInt(process.env.LOOP_INTERVAL_MS || "300000")
   console.log(`Loop started - taking trades every ${interval / 1000} seconds.`)
   
   // Initial run
-  runCycle()
+  runCycle().catch(err => console.error("Initial cycle failed:", err.message))
   
   // Interval run
-  setInterval(runCycle, interval)
+  setInterval(() => {
+    runCycle().catch(err => console.error("Cycle failed:", err.message))
+  }, interval)
 }
 
 main()
