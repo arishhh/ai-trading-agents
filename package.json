@@ -4,7 +4,7 @@
   "description": "Autonomous AI crypto trading agent for Kraken CLI + Convex",
   "main": "agent/loop.ts",
   "scripts": {
-    "agent": "bash start.sh",
+    "agent": "npx tsx agent/loop.ts",
     "build": "npx convex deploy"
   },
   "dependencies": {

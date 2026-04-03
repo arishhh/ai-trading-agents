@@ -3,7 +3,7 @@ import { promisify } from 'util'
 
 const execAsync = promisify(exec)
 
-const KRAKEN_BIN = process.env.KRAKEN_BIN_PATH || '/usr/local/bin/kraken'
+const KRAKEN_BIN = process.env.KRAKEN_BIN_PATH || '/app/bin/kraken'
 
 /**
  * Shell execute a kraken command and parse JSON output.
