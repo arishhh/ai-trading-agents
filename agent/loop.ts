@@ -2,6 +2,7 @@ import { ConvexHttpClient } from "convex/browser"
 import * as kraken from "./kraken"
 import * as claude from "./claude"
 import { checkRisk } from "./risk"
+import { signTradeIntent, getAgentAddress } from "./erc8004"
 import dotenv from "dotenv"
 
 dotenv.config()
@@ -56,6 +57,16 @@ async function runCycle() {
       decision.volume = 200 / currentPrice
     }
 
+    // EIP-712: Sign the trade intent for cryptographic auditability
+    const eip712Signature = await signTradeIntent({
+      action:     decision.action,
+      volume:     decision.volume || 0,
+      price:      currentPrice,
+      confidence: decision.confidence || 0,
+      timestamp,
+    })
+    console.log(`[${timeStr}] EIP-712 Signature: ${eip712Signature.slice(0, 20)}...`)
+
     let executed = false
     let krakenResponse: any = null
 
@@ -89,7 +100,8 @@ async function runCycle() {
       confidence: decision.confidence || 0,
       executed,
       krakenResponse,
-      pnlSnapshot: finalStatus.unrealized_pnl
+      pnlSnapshot: finalStatus.unrealized_pnl,
+      eip712Signature,
     })
 
     console.log(`[${timeStr}] ${decision.action.toUpperCase()} | Price: $${currentPrice.toFixed(2)} | Confidence: ${(decision.confidence * 100).toFixed(0)}% | PnL: $${finalStatus.unrealized_pnl.toFixed(2)}`)
