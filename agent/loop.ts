@@ -8,6 +8,13 @@ import dotenv from "dotenv"
 dotenv.config()
 
 const CONVEX_URL = process.env.CONVEX_URL || ""
+if (!CONVEX_URL) {
+  console.error("FATAL: CONVEX_URL is not set in environment variables.")
+} else {
+  const maskedUrl = CONVEX_URL.replace(/(.{8}).+(.{4})/, "$1...$2")
+  console.log(`Convex Client Initialized: ${maskedUrl}`)
+}
+
 const client = new ConvexHttpClient(CONVEX_URL)
 
 /**
@@ -82,7 +89,7 @@ async function runCycle() {
     console.log(`[${timeStr}] ${decision.action.toUpperCase()} | Price: $${currentPrice.toFixed(2)} | Confidence: ${(decision.confidence * 100).toFixed(0)}% | PnL: $${finalStatus.unrealized_pnl.toFixed(2)}`)
 
   } catch (error: any) {
-    console.error(`[${timeStr}] CYCLE ERROR:`, error.message)
+    console.error(`[${timeStr}] CYCLE ERROR:`, error)
     
     // Log error row to Convex
     try {
@@ -91,14 +98,14 @@ async function runCycle() {
         action: "error",
         volume: 0,
         price: 0,
-        reason: error.message,
+        reason: error.message || String(error),
         confidence: 0,
         executed: false,
         krakenResponse: null,
         pnlSnapshot: 0
       })
     } catch (dbError: any) {
-      console.error("Critical: Failed to log error to Convex", dbError.message)
+      console.error("Critical: Failed to log error to Convex", dbError)
     }
   }
 }
@@ -113,8 +120,8 @@ async function main() {
     console.log("Initializing Paper Trading account...")
     try {
       await kraken.initPaper()
-    } catch (err) {
-      console.warn("Paper account already initialized or failed:", err.message)
+    } catch (err: any) {
+      console.warn("Paper account initialization note:", err.message || err)
     }
   }
 
@@ -125,9 +132,9 @@ async function main() {
       value: Date.now()
     })
   } catch (error: any) {
-    console.error("Startup heartbeat failed:", error.message)
+    console.error("Startup heartbeat failed:", error)
     // If it's a function not found error, it means we might need a deploy
-    if (error.message.includes("Function not found")) {
+    if (String(error).includes("Function not found")) {
       console.error("TIP: Ensure your Convex functions are deployed to the current CONVEX_URL.")
     }
   }
@@ -137,11 +144,11 @@ async function main() {
   console.log(`Loop started - taking trades every ${interval / 1000} seconds.`)
   
   // Initial run
-  runCycle().catch(err => console.error("Initial cycle failed:", err.message))
+  runCycle().catch(err => console.error("Initial cycle failed:", err))
   
   // Interval run
   setInterval(() => {
-    runCycle().catch(err => console.error("Cycle failed:", err.message))
+    runCycle().catch(err => console.error("Cycle failed:", err))
   }, interval)
 }
 

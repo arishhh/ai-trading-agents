@@ -1,5 +1,6 @@
 import { exec } from 'child_process'
 import { promisify } from 'util'
+import fs from 'fs'
 
 const execAsync = promisify(exec)
 
@@ -11,6 +12,11 @@ const KRAKEN_BIN = process.env.KRAKEN_BIN_PATH || '/root/.cargo/bin/kraken'
  * @returns Parsed JSON result
  */
 async function krakenExec(command: string) {
+  // Check if binary exists at startup (not every time, but for debugging now)
+  if (!fs.existsSync(KRAKEN_BIN)) {
+    throw new Error(`Kraken binary NOT FOUND at: ${KRAKEN_BIN}. Please check KRAKEN_BIN_PATH.`)
+  }
+
   try {
     const fullCommand = `${KRAKEN_BIN} ${command} -o json`
     const { stdout, stderr } = await execAsync(fullCommand)
@@ -28,7 +34,9 @@ async function krakenExec(command: string) {
 
     return result
   } catch (error: any) {
-    throw new Error(`Failed to execute kraken command: ${error.message}`)
+    const msg = error.message || "Unknown error"
+    const details = error.stderr ? `| Stderr: ${error.stderr}` : ""
+    throw new Error(`Failed to execute kraken command: ${msg} ${details}`)
   }
 }
 
