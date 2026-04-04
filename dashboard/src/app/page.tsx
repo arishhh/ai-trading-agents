@@ -147,7 +147,13 @@ export default function DashboardPage() {
               };
 
               return (
-                <div key={trade._id} className="bg-[#131314] rounded-xl p-5 border-t border-[#484849]/30 flex flex-col md:flex-row gap-4 items-start md:items-center hover:bg-[#1a191b] transition-colors relative">
+                <div key={trade._id} className="bg-[#131314] rounded-xl p-5 border-t border-[#484849]/30 flex flex-col md:flex-row gap-4 items-start md:items-center hover:bg-[#1a191b] transition-colors relative group">
+                  {/* Source Badge */}
+                  {trade.source && (
+                    <div className="absolute top-2 right-2 text-[10px] uppercase font-bold tracking-tighter text-[#adaaab] bg-[#1a191b] px-2 py-0.5 rounded border border-[#484849]/20 opacity-40 group-hover:opacity-100 transition-opacity">
+                      {trade.source}
+                    </div>
+                  )}
                   
                   {/* Left Column: Action & Price */}
                   <div className="w-full md:w-48 shrink-0 flex flex-col gap-1">

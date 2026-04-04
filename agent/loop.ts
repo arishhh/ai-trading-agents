@@ -106,6 +106,7 @@ async function runCycle() {
       krakenResponse,
       pnlSnapshot: finalStatus.unrealized_pnl,
       eip712Signature,
+      source: process.env.RAILWAY_SERVICE_ID ? "Railway (Cloud)" : "Local Terminal"
     })
 
     console.log(`[${timeStr}] ${decision.action.toUpperCase()} | Price: $${currentPrice.toFixed(2)} | Confidence: ${(decision.confidence * 100).toFixed(0)}% | PnL: $${finalStatus.unrealized_pnl.toFixed(2)}`)
@@ -124,7 +125,8 @@ async function runCycle() {
         confidence: 0,
         executed: false,
         krakenResponse: null,
-        pnlSnapshot: 0
+        pnlSnapshot: 0,
+        source: process.env.RAILWAY_SERVICE_ID ? "Railway (Cloud)" : "Local Terminal"
       })
     } catch (dbError: any) {
       console.error("Critical: Failed to log error to Convex", dbError)
