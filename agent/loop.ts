@@ -135,7 +135,7 @@ async function runCycle() {
  * Startup sequence.
  */
 async function main() {
-  console.log("--- Starting KrakenAI Trader Agent ---")
+  console.log("--- Starting InnovAgent Trader Agent ---")
   
   if (process.env.PAPER_MODE === "true") {
     console.log("Initializing Paper Trading account...")

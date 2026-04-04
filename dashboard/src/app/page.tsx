@@ -33,17 +33,27 @@ export default function DashboardPage() {
     <main className="max-w-6xl mx-auto p-4 md:p-8 font-sans">
       {/* Header & Controls */}
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-10 gap-6">
-        <div>
-          <h1 className="text-3xl md:text-4xl font-black font-[family-name:var(--font-space-grotesk)] tracking-tight text-white mb-1">
-            KrakenAI Terminal
-          </h1>
-          <p className="text-[#adaaab] font-medium flex items-center gap-2">
-            <Activity size={16} className={isPaused ? "text-[#ff7351]" : "text-[#00FF41]"} />
-            System Status: 
-            <span className={isPaused ? "text-[#ff7351]" : "text-[#00FF41]"}>
-              {isPaused ? "PAUSED" : "ACTIVE"}
-            </span>
-          </p>
+        <div className="flex items-center gap-4">
+          <div className="w-16 h-16 shrink-0 bg-[#131314] rounded-xl border border-[#484849]/30 p-2 flex items-center justify-center overflow-hidden">
+            <img 
+              src="/itnnovator-logo.png" 
+              alt="InnovAgent" 
+              className="w-full h-full object-contain"
+              onError={(e) => (e.currentTarget.style.display = 'none')}
+            />
+          </div>
+          <div>
+            <h1 className="text-3xl md:text-4xl font-black font-[family-name:var(--font-space-grotesk)] tracking-tight text-white mb-1">
+              InnovAgent Terminal
+            </h1>
+            <p className="text-[#adaaab] font-medium flex items-center gap-2">
+              <Activity size={16} className={isPaused ? "text-[#ff7351]" : "text-[#00FF41]"} />
+              System Status: 
+              <span className={isPaused ? "text-[#ff7351]" : "text-[#00FF41]"}>
+                {isPaused ? "PAUSED" : "ACTIVE"}
+              </span>
+            </p>
+          </div>
         </div>
 
         <button 
@@ -92,7 +102,7 @@ export default function DashboardPage() {
       {/* Decision Feed */}
       <div>
         <h3 className="text-[#adaaab] text-sm uppercase tracking-widest font-[family-name:var(--font-space-grotesk)] mb-4 flex items-center gap-2">
-          <Clock size={16} /> Autonomous Reasoning Log
+          <Clock size={16} /> InnovAgent Neural reasoning
         </h3>
         
         <div className="flex flex-col gap-3">
