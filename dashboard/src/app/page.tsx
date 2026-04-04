@@ -47,7 +47,7 @@ export default function DashboardPage() {
               InnovAgent Terminal
             </h1>
             <p className="text-[#adaaab] font-medium flex items-center gap-2">
-              <Activity size={16} className={isPaused ? "text-[#ff7351]" : "text-[#00FF41]"} />
+              <Activity size={16} className={`${isPaused ? "text-[#ff7351]" : "text-[#00FF41] animate-pulse"}`} />
               System Status: 
               <span className={isPaused ? "text-[#ff7351]" : "text-[#00FF41]"}>
                 {isPaused ? "PAUSED" : "ACTIVE"}
