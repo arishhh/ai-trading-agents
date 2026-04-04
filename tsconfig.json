@@ -9,7 +9,7 @@
     "forceConsistentCasingInFileNames": true,
     "outDir": "dist",
     "rootDirs": [".", "./agent", "./convex"],
-    "declaration": true,
+    "declaration": false,
     "sourceMap": true,
     "lib": ["ESNext", "DOM"]
   },

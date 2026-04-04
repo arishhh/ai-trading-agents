@@ -1,5 +1,6 @@
 import { mutation, query } from "./_generated/server"
 import { v } from "convex/values"
+import { Doc } from "./_generated/dataModel"
 
 export const insertDecision = mutation({
   args: {
@@ -22,7 +23,7 @@ export const insertDecision = mutation({
 })
 
 export const getRecent = query({
-  handler: async (ctx) => {
+  handler: async (ctx): Promise<Doc<"decisions">[]> => {
     return await ctx.db
       .query("decisions")
       .order("desc")
@@ -33,7 +34,7 @@ export const getRecent = query({
 // For Daily Loss Limit ($500) — no index on timestamp, filter in memory
 export const getRecentByTime = query({
   args: { since: v.number() },
-  handler: async (ctx, args) => {
+  handler: async (ctx, args): Promise<Doc<"decisions">[]> => {
     const all = await ctx.db
       .query("decisions")
       .order("desc")
@@ -45,7 +46,7 @@ export const getRecentByTime = query({
 // For Circuit Breaker (3 losses)
 export const getLatestTrades = query({
   args: { count: v.number() },
-  handler: async (ctx, args) => {
+  handler: async (ctx, args): Promise<Doc<"decisions">[]> => {
     return await ctx.db
       .query("decisions")
       .order("desc")
