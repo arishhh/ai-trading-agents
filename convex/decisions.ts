@@ -12,6 +12,7 @@ export const insertDecision = mutation({
     executed: v.boolean(),
     krakenResponse: v.any(),
     pnlSnapshot: v.number(),
+    eip712Signature: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
     const id = await ctx.db.insert("decisions", args)
@@ -28,14 +29,15 @@ export const getRecent = query({
   },
 })
 
-// For Daily Loss Limit ($500)
+// For Daily Loss Limit ($500) — no index on timestamp, filter in memory
 export const getRecentByTime = query({
   args: { since: v.number() },
   handler: async (ctx, args) => {
-    return await ctx.db
+    const all = await ctx.db
       .query("decisions")
-      .withIndex("by_timestamp", (q) => q.ge("timestamp", args.since))
-      .collect()
+      .order("desc")
+      .take(500) // Look back through the last 500 rows max
+    return all.filter((d) => d.timestamp >= args.since)
   },
 })
 

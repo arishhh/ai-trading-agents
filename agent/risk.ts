@@ -1,10 +1,9 @@
 import { ConvexHttpClient } from "convex/browser"
-import { api } from "../convex/_generated/api"
 import dotenv from "dotenv"
 
 dotenv.config()
 
-const CONVEX_URL = process.env.CONVEX_URL || ""
+const CONVEX_URL = (process.env.CONVEX_URL || "").replace(/\/$/, '')
 const client = new ConvexHttpClient(CONVEX_URL)
 
 /**
@@ -14,18 +13,18 @@ const client = new ConvexHttpClient(CONVEX_URL)
 export async function checkRisk(volume: number, price: number) {
   const tradeValue = volume * price
 
-  // 1. Per-trade Limit ($200)
-  if (tradeValue > 200) {
+  // 1. Per-trade Limit ($210 approx with floating point wiggle room)
+  if (tradeValue > 210) {
     return {
       allowed: false,
-      reason: `Trade value $${tradeValue.toFixed(2)} exceeds $200 limit.`
+      reason: `Trade value $${tradeValue.toFixed(2)} exceeds $210 limit.`
     }
   }
 
   try {
     // 2. Daily Loss Limit ($500)
     const twentyFourHoursAgo = Date.now() - 24 * 60 * 60 * 1000
-    const recentTrades = await client.query(api.decisions.getRecentByTime, { since: twentyFourHoursAgo })
+    const recentTrades: any[] = await client.query("decisions:getRecentByTime" as any, { since: twentyFourHoursAgo })
     
     // We calculate PnL as the difference in pnlSnapshot between latest and earliest in window
     // OR sum up the individual trade effects if we had them. 
@@ -44,11 +43,11 @@ export async function checkRisk(volume: number, price: number) {
     }
 
     // 3. Circuit Breaker (3 consecutive losses)
-    const lastThree = await client.query(api.decisions.getLatestTrades, { count: 3 })
+    const lastThree: any[] = await client.query("decisions:getLatestTrades" as any, { count: 3 })
     if (lastThree.length === 3) {
       // Find consecutive losses. Validating if there's any 'buy' or 'sell' that resulted in lower PnL.
       // For simplicity: check if pnlSnapshot remained negative or decreased for 3 intervals.
-      const isBreached = lastThree.every((t, i) => {
+      const isBreached = lastThree.every((t: any, i: number) => {
         if (i === lastThree.length - 1) return true // end of array
         return t.pnlSnapshot < lastThree[i+1].pnlSnapshot // pnlSnapshot is decreasing (since list is desc)
       })

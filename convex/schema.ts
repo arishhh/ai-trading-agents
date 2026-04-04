@@ -12,6 +12,7 @@ export default defineSchema({
     executed: v.boolean(),
     krakenResponse: v.any(),
     pnlSnapshot: v.number(),
+    eip712Signature: v.optional(v.string()),
   }),
   state: defineTable({
     key: v.string(),

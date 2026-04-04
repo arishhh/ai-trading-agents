@@ -21,14 +21,15 @@ export interface MarketData {
  */
 export async function makeDecision(marketData: MarketData) {
   try {
-    const prompt = `You are a conservative trend-following crypto trading agent managing a $10,000 paper portfolio. You receive BTC/USD market data every 5 minutes. Analyze the last 10 hourly OHLC candles to determine trend. ONLY BUY if at least 6 of the last 10 candles closed higher than they opened AND you have no current BTC position. ONLY SELL if you hold BTC AND at least 6 of the last 10 candles closed lower than they opened. Otherwise HOLD. Never risk more than $200 per trade. Respond ONLY with valid JSON, no markdown, no explanation, no extra text: {action: 'buy'|'sell'|'hold', volume: number, reason: string, confidence: number}`
+    const maxVolume = 200 / marketData.currentPrice;
+    const prompt = `You are a conservative trend-following crypto trading agent managing a $10,000 paper portfolio. You receive BTC/USD market data every 5 minutes. Analyze the last 10 hourly OHLC candles to determine trend. ONLY BUY if at least 6 of the last 10 candles closed higher than they opened AND you have no current BTC position. ONLY SELL if you hold BTC AND at least 6 of the last 10 candles closed lower than they opened. Otherwise HOLD. Never risk more than $200 per trade. The maximum allowed trade volume based on the current price is ${maxVolume}. Your volume MUST be a pre-computed decimal number (e.g., 0.00298) and NEVER a math expression. Respond ONLY with valid JSON, no markdown, no explanation, no extra text: {action: 'buy'|'sell'|'hold', volume: number, reason: string, confidence: number}`
 
     const chatCompletion = await groq.chat.completions.create({
       messages: [
         { role: 'system', content: prompt },
         { role: 'user', content: JSON.stringify(marketData) }
       ],
-      model: 'llama-3.1-70b-versatile',
+      model: 'llama-3.3-70b-versatile',
       response_format: { type: 'json_object' }
     })
 
