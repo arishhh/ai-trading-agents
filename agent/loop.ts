@@ -1,6 +1,7 @@
 import { ConvexHttpClient } from "convex/browser"
 import * as kraken from "./kraken"
 import * as claude from "./claude"
+import * as prism from "./prism"
 import { checkRisk } from "./risk"
 import { signTradeIntent, getAgentAddress } from "./erc8004"
 import dotenv from "dotenv"
@@ -37,13 +38,15 @@ async function runCycle() {
     const { price: currentPrice } = await kraken.getTicker()
     const candles = await kraken.getOHLC()
     const portfolioStatus = await kraken.getPaperStatus()
+    const signals = await prism.getSignals()
 
     const marketData: claude.MarketData = {
       currentPrice,
       candles,
       portfolioValue: portfolioStatus.current_value,
       unrealizedPnl: portfolioStatus.unrealized_pnl,
-      totalTrades: portfolioStatus.total_trades
+      totalTrades: portfolioStatus.total_trades,
+      signals
     }
 
     // 3. Get AI decision

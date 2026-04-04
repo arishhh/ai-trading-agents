@@ -1,21 +1,24 @@
+# Use a lightweight Node image
 FROM node:20-slim
-
-RUN apt-get update && apt-get install -y curl wget tar && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
 
-RUN curl --proto '=https' --tlsv1.2 -LsSf https://github.com/krakenfx/kraken-cli/releases/latest/download/kraken-cli-installer.sh | sh
+# Standard system dependencies
+RUN apt-get update && apt-get install -y \
+    curl \
+    && rm -rf /var/lib/apt/lists/*
 
-ENV PATH="/root/.cargo/bin:${PATH}"
-
-RUN kraken --version
-
+# Install project dependencies
 COPY package*.json ./
 RUN npm ci
 
+# Copy the rest of the application
 COPY . .
 
+# Ensure Convex is deployed in production
 ARG CONVEX_DEPLOY_KEY
 RUN npx convex deploy
 
+# Start the Trading Agent Loop
+# (We no longer need the Kraken CLI binary!)
 CMD ["npx", "tsx", "agent/loop.ts"]

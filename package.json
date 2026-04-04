@@ -5,6 +5,8 @@
   "main": "agent/loop.ts",
   "scripts": {
     "agent": "npx tsx agent/loop.ts",
+    "dashboard": "npm run dev --prefix dashboard",
+    "dev": "concurrently \"npm run agent\" \"npm run dashboard\"",
     "build": "npx convex deploy"
   },
   "dependencies": {
@@ -12,10 +14,12 @@
     "dotenv": "^16.4.5",
     "ethers": "^6.16.0",
     "groq-sdk": "^0.13.0",
+    "kraken-cli": "^0.0.6",
     "tsx": "^4.10.0"
   },
   "devDependencies": {
     "@types/node": "^20.12.12",
+    "concurrently": "^8.2.2",
     "typescript": "^5.4.5"
   },
   "engines": {
