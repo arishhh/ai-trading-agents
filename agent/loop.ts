@@ -5,6 +5,7 @@ import * as prism from "./prism"
 import { checkRisk } from "./risk"
 import { signTradeIntent, getAgentAddress } from "./erc8004"
 import dotenv from "dotenv"
+import http from "http"
 
 dotenv.config()
 
@@ -160,7 +161,16 @@ async function main() {
     }
   }
 
-  // Start the 5-minute loop
+  // Add a basic health-check server to satisfy Railway/Vercel/Render health checks
+  const PORT = process.env.PORT || 8080
+  http.createServer((req, res) => {
+    res.writeHead(200, { 'Content-Type': 'text/plain' })
+    res.end('InnovAgent is healthy and running.\n')
+  }).listen(PORT, () => {
+    console.log(`Health check server listening on port ${PORT}`)
+  })
+
+  // Start the 10-minute loop
   const interval = parseInt(process.env.LOOP_INTERVAL_MS || "300000")
   console.log(`Loop started - taking trades every ${interval / 1000} seconds.`)
   
