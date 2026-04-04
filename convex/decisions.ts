@@ -13,6 +13,7 @@ export const insertDecision = mutation({
     krakenResponse: v.any(),
     pnlSnapshot: v.number(),
     eip712Signature: v.optional(v.string()),
+    source: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
     const id = await ctx.db.insert("decisions", args)
