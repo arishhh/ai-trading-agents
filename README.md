@@ -3,7 +3,10 @@
 InnovAgent is a fully autonomous crypto-trading agent designed for high-frequency market analysis and risk-aware execution. It leverages the ultra-low latency of Groq's LLMs to analyze Kraken market data, PRISM sentiment signals, and historical trends to make 24/7 trading decisions. With a reactive Convex backend and a premium Next.js dashboard, users can monitor every trade, AI reasoning log, and portfolio metric in real-time.
 
 ### 🌐 Live Dashboard
-[Your Vercel URL Here]
+https://ai-trading-innovagent.vercel.app/
+
+### 🌐 Tutorial
+https://www.youtube.com/watch?v=1wMBDjxESQg
 
 ### 🛠️ Tech Stack
 *   **Core**: Node.js, TypeScript
