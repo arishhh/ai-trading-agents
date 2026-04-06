@@ -14,6 +14,6 @@ Safety is at the core of the design. The agent features a multi-layered risk man
 Node.js, TypeScript, Next.js, Groq, KrakenCLI, PRISM, Convex, Railway, Vercel
 
 **Links**:
-*   **GitHub**: [Insert Repo URL]
-*   **Vercel (Live Demo)**: [Insert Vercel URL]
-*   **Demo Video**: [Insert Loom/YouTube URL]
+*   **GitHub**: https://github.com/arishhh/ai-trading-agents
+*   **Vercel (Live Demo)**: https://ai-trading-innovagent.vercel.app/
+*   **Demo Video**: https://www.youtube.com/watch?v=1wMBDjxESQg
