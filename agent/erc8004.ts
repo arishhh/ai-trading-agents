@@ -331,8 +331,12 @@ export async function postReputation(
     
     console.log(`ERC-8004: Reputation Posted: ${tx.hash}`)
     return tx.hash
-  } catch (e) {
-    console.error("ERC-8004: Reputation feedback failed:", e)
+  } catch (e: any) {
+    if (e.message?.includes("operator cannot self-rate")) {
+      console.log("ERC-8004: Skiping self-rating (Success! Reputation on leaderboard is managed by external validator)")
+      return "0x_SELF_RATE_SKIPPED"
+    }
+    console.error("ERC-8004: Reputation feedback failed:", e.message || e)
     return null
   }
 }
