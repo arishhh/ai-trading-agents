@@ -12,6 +12,20 @@ const client = new ConvexHttpClient(CONVEX_URL)
  */
 export async function checkRisk(volume: number, price: number) {
   const tradeValue = volume * price
+  const now = new Date()
+  const currentDateStr = now.toISOString().split('T')[0] // UTC YYYY-MM-DD
+
+  try {
+    // 0. Daily Reset Check (Always run to keep state synced)
+    const lastReset: any = await client.query("state:getValue" as any, { key: "lastReset" })
+    if (!lastReset || lastReset.value !== currentDateStr) {
+      console.log(`[Risk] New day detected (${currentDateStr}). Resetting today's losses.`)
+      await client.mutation("state:upsertValue" as any, { key: "lastReset", value: currentDateStr })
+      await client.mutation("state:upsertValue" as any, { key: "todayLosses", value: 0 })
+    }
+  } catch (error: any) {
+    console.warn("[Risk] Failed to check/reset daily state:", error.message)
+  }
 
   // 1. Per-trade Limit ($210 approx with floating point wiggle room)
   if (tradeValue > 210) {
@@ -23,16 +37,22 @@ export async function checkRisk(volume: number, price: number) {
 
   try {
     // 2. Daily Loss Limit ($500)
-    const twentyFourHoursAgo = Date.now() - 24 * 60 * 60 * 1000
-    const recentTrades: any[] = await client.query("decisions:getRecentByTime" as any, { since: twentyFourHoursAgo })
+    // Calculate daily loss based on the start of the UTC day (midnight)
+    const midnight = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate())).getTime()
+    const recentTrades: any[] = await client.query("decisions:getRecentByTime" as any, { since: midnight })
     
-    // We calculate PnL as the difference in pnlSnapshot between latest and earliest in window
-    // OR sum up the individual trade effects if we had them. 
-    // Given our schema, we use pnlSnapshot (unrealized PnL).
+    let dailyPnL = 0
     if (recentTrades.length > 0) {
-      const currentPnL = recentTrades[recentTrades.length - 1].pnlSnapshot
-      const startPnL = recentTrades[0].pnlSnapshot
-      const dailyPnL = currentPnL - startPnL
+      // decisions:getRecentByTime returns DESC (latest first)
+      const currentPnL = recentTrades[0].pnlSnapshot
+      const startPnL = recentTrades[recentTrades.length - 1].pnlSnapshot
+      dailyPnL = currentPnL - startPnL
+      
+      // Update todayLosses in state table for dashboard/tracking
+      await client.mutation("state:upsertValue" as any, { 
+        key: "todayLosses", 
+        value: dailyPnL < 0 ? Math.abs(dailyPnL) : 0 
+      })
 
       if (dailyPnL <= -500) {
         return {
