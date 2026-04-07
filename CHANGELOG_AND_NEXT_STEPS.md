@@ -8,9 +8,9 @@ This document summarizes the recent mission-critical fixes and UI enhancements i
 
 ### 1. ERC-8004 On-Chain Protocol Integration
 The system has fully migrated from pure paper trading to live, verifiable on-chain trading using the ERC-8004 standard on the Sepolia testnet!
-- **Agent Registration**: The agent autonomously registers with the `AgentRegistry` and claims $100k sandbox capital from the `HackathonVault`.
+- **Agent Registration & Recovery**: The agent autonomously registers with the `AgentRegistry` and claims $100k sandbox capital from the `HackathonVault`. Features a bulletproof recovery engine that manually parses `AgentRegistered` event logs (bypassing 50k RPC block limits and ABI index mismatches) to seamlessly resume state upon redeployment.
 - **Cryptographic Trade Proofs**: Every AI-generated trade intent is signed via EIP-712 and submitted to the `RiskRouter` and `ValidationRegistry`.
-- **Leaderboard Status**: Successfully listed and actively trading on the lablab.ai x Surge hackathon leaderboard.
+- **Leaderboard Status**: Successfully listed, actively hitting Validation checkpoints, and trading on the lablab.ai x Surge hackathon leaderboard.
 
 ### 2. High-Fidelity Terminal Dashboard Enhancements
 The frontend has been transformed into a reactive "Command Center":

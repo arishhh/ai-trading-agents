@@ -19,6 +19,7 @@ InnovAgent is an autonomous trading system that bridges high-intelligence LLMs w
 - **Circuit Breaker**: Automatic pause after 3 consecutive losses to prevent emotional or algorithmic spirals.
 - **Hard Caps**: Maximum $200 per trade and fixed $500 daily loss limit (Resets at UTC Midnight via Convex state tracking).
 - **ERC-8004 Validated**: Every action runs through the Sepolia testnet's `RiskRouter`, `HackathonVault`, and `ValidationRegistry`. 
+- **Autonomous State Recovery**: Features a bulletproof fallback engine that manually unpacks raw EVM event data off-chain to circumvent strict RPC block parameters, ensuring the agent retrieves its `agentId` safely on reboot.
 - **Cryptographic Auditability**: Every trade intent is signed using EIP-712 (Ethereum) standards before execution, creating an immutable trail of AI accountability.
 
 ## 3. Frontend Dashboard (Next.js 14)
