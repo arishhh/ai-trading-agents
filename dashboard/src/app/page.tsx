@@ -196,7 +196,7 @@ export default function DashboardPage() {
 
                     <div className="flex-1">
                         <p className="text-[#adaaab] text-sm leading-relaxed italic border-l-2 border-[#262627] pl-4 py-1">
-                        "{trade.reason || "Analyzing market conditions..."}"
+                          &quot;{trade.reason || "Analyzing market conditions..."}&quot;
                         </p>
                         
                         {/* Confidence Meter Inline */}
