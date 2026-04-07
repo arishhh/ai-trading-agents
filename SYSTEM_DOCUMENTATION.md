@@ -17,7 +17,7 @@ InnovAgent is an autonomous trading system that bridges high-intelligence LLMs w
 
 ### 🛡️ Risk & Safety
 - **Circuit Breaker**: Automatic pause after 3 consecutive losses to prevent emotional or algorithmic spirals.
-- **Hard Caps**: Maximum $200 per trade and fixed $500 daily loss limit.
+- **Hard Caps**: Maximum $200 per trade and fixed $500 daily loss limit (Resets at UTC Midnight via Convex state tracking).
 - **Cryptographic Auditability**: Every trade intent is signed using EIP-712 (Ethereum) standards before execution, creating an immutable trail of AI accountability.
 
 ## 3. Frontend Dashboard (Next.js 14)
