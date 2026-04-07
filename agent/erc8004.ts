@@ -50,7 +50,7 @@ const AGENT_REGISTRY_DOMAIN = {
 const AGENT_REGISTRY_ABI = [
   "function register(address agentWallet, string name, string description, string[] capabilities, string agentURI) external returns (uint256 agentId)",
   "function isRegistered(uint256 agentId) external view returns (bool)",
-  "event AgentRegistered(uint256 indexed agentId, address indexed operatorWallet, address indexed agentWallet)"
+  "event AgentRegistered(uint256 indexed agentId, address indexed operatorWallet, address indexed agentWallet, string name)"
 ]
 
 const VAULT_ABI = [
@@ -142,7 +142,7 @@ export async function registerAgent(): Promise<string | null> {
     if (String(e).includes("already registered") || e.message?.includes("already registered")) {
       console.log("ERC-8004: Wallet already registered on-chain. Scanning logs to recover Agent ID...")
       try {
-        const eventSignature = ethers.id('AgentRegistered(uint256,address,address)')
+        const eventSignature = ethers.id('AgentRegistered(uint256,address,address,string)')
         
         if (!signer.provider) throw new Error("No provider available")
         const currentBlock = await signer.provider.getBlockNumber()
