@@ -145,9 +145,13 @@ export async function registerAgent(): Promise<string | null> {
         const eventSignature = ethers.id('AgentRegistered(uint256,address,address)')
         const paddedAddress = ethers.zeroPadValue(signer.address, 32)
         
-        const logs = await signer.provider?.getLogs({
+        if (!signer.provider) throw new Error("No provider available")
+        const currentBlock = await signer.provider.getBlockNumber()
+        const fromBlock = Math.max(0, currentBlock - 40000) // Stay within free RPC limits
+        
+        const logs = await signer.provider.getLogs({
           address: AGENT_REGISTRY_ADDRESS,
-          fromBlock: 0,
+          fromBlock: fromBlock,
           toBlock: 'latest',
           topics: [eventSignature, null, null, paddedAddress]
         })
