@@ -143,30 +143,36 @@ export async function registerAgent(): Promise<string | null> {
       console.log("ERC-8004: Wallet already registered on-chain. Scanning logs to recover Agent ID...")
       try {
         const eventSignature = ethers.id('AgentRegistered(uint256,address,address)')
-        const paddedAddress = ethers.zeroPadValue(signer.address, 32)
         
         if (!signer.provider) throw new Error("No provider available")
         const currentBlock = await signer.provider.getBlockNumber()
-        const fromBlock = Math.max(0, currentBlock - 40000) // Stay within free RPC limits
+        const fromBlock = Math.max(0, currentBlock - 40000) 
         
         const logs = await signer.provider.getLogs({
           address: AGENT_REGISTRY_ADDRESS,
           fromBlock: fromBlock,
           toBlock: 'latest',
-          topics: [eventSignature, null, null, paddedAddress]
+          topics: [eventSignature]
         })
 
-        if (logs && logs.length > 0) {
-          const log = logs[logs.length - 1]
-          const agentId = BigInt(log.topics[1]).toString()
-          console.log(`ERC-8004: Recovered Agent ID from chain: ${agentId}`)
-          
-          await client.mutation("state:upsertValue" as any, { 
-            key: "erc8004AgentId", 
-            value: agentId 
-          })
-          
-          return agentId
+        let recoveredId: string | null = null;
+        for (const log of logs) {
+          try {
+            const parsed = registry.interface.parseLog(log)
+            if (parsed && parsed.args.agentWallet.toLowerCase() === signer.address.toLowerCase()) {
+              recoveredId = parsed.args.agentId.toString()
+              break
+            }
+          } catch (err) {
+            // ignore unparseable logs
+          }
+        }
+
+        if (recoveredId) {
+          console.log(`ERC-8004: Recovered Agent ID from chain: ${recoveredId}`)
+          await client.mutation("state:upsertValue" as any, { key: "erc8004AgentId", value: recoveredId })
+          await client.mutation("state:upsertValue" as any, { key: "vaultClaimed", value: true })
+          return recoveredId
         } else {
           console.log("ERC-8004: Could not find AgentRegistered logs for this wallet.")
         }
