@@ -58,6 +58,8 @@ export default function DashboardPage() {
     return () => clearInterval(timer);
   }, [latestTrade]);
 
+  const [showChart, setShowChart] = useState(true);
+
   if (!mounted) return null;
 
   return (
@@ -154,9 +156,19 @@ export default function DashboardPage() {
             <h3 className="text-xs uppercase tracking-widest font-bold text-[#adaaab] flex items-center gap-2">
                 <TrendingUp size={14} className="text-[#00fc40]" /> Kraken Real-time Liquidity
             </h3>
-            <span className="text-[10px] font-bold text-[#00fc40] bg-[#00fc40]/10 px-2 py-0.5 rounded border border-[#00fc40]/20 animate-pulse">LIVE FEED</span>
+            <div className="flex items-center gap-4">
+              <span className="text-[10px] font-bold text-[#00fc40] bg-[#00fc40]/10 px-2 py-0.5 rounded border border-[#00fc40]/20 animate-pulse">LIVE FEED</span>
+              <button 
+                onClick={() => setShowChart(!showChart)}
+                className="text-[10px] font-black uppercase tracking-widest text-[#adaaab] hover:text-white transition-colors border border-[#262627] px-3 py-1 rounded-lg hover:bg-white/5"
+              >
+                {showChart ? "Collapse Chart" : "Expand Chart"}
+              </button>
+            </div>
         </div>
-        <KrakenChart />
+        <div className={showChart ? "block h-[450px]" : "hidden"}>
+          <KrakenChart />
+        </div>
       </div>
 
       {/* Decision Feed */}
