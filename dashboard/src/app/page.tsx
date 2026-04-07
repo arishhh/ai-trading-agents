@@ -60,6 +60,24 @@ export default function DashboardPage() {
 
   const [showChart, setShowChart] = useState(true);
 
+  const heartbeatState = useQuery("state:getValue" as any, { key: "heartbeat" });
+  const heartbeat = heartbeatState?.value || 0;
+
+  const [pulse, setPulse] = useState(0);
+  useEffect(() => {
+    const i = setInterval(() => setPulse(p => p + 1), 30000);
+    return () => clearInterval(i);
+  }, []);
+
+  const getHeartbeatStatus = () => {
+    if (!heartbeat) return { label: "OFFLINE", color: "text-red-500", dot: "bg-red-500" };
+    const diff = (Date.now() - heartbeat) / 60000;
+    if (diff < 15) return { label: "LIVE", color: "text-[#00FF41]", dot: "bg-[#00FF41]" };
+    if (diff < 30) return { label: "DELAYED", color: "text-yellow-500", dot: "bg-yellow-500" };
+    return { label: "OFFLINE", color: "text-red-500", dot: "bg-red-500" };
+  };
+  const status = getHeartbeatStatus();
+
   if (!mounted) return null;
 
   return (
@@ -79,13 +97,22 @@ export default function DashboardPage() {
             <h1 className="text-3xl md:text-5xl font-black font-[family-name:var(--font-space-grotesk)] tracking-tighter text-white mb-1 uppercase">
               InnovAgent<span className="text-[#00fc40]">.</span>Terminal
             </h1>
-            <p className="text-[#adaaab] font-medium flex items-center gap-2 text-sm tracking-widest uppercase">
-              <Activity size={14} className={`${isPaused ? "text-[#ff7351]" : "text-[#00FF41] animate-pulse"}`} />
-              Agent Status: 
-              <span className={isPaused ? "text-[#ff7351]" : "text-[#00FF41]"}>
-                {isPaused ? "PAUSED" : "OPERATIONAL"}
-              </span>
-            </p>
+            <div className="flex flex-col md:flex-row gap-2 md:gap-6 mt-1">
+              <p className="text-[#adaaab] font-medium flex items-center gap-2 text-xs tracking-widest uppercase">
+                <Activity size={12} className={`${isPaused ? "text-[#ff7351]" : "text-[#00FF41] animate-pulse"}`} />
+                Agent: 
+                <span className={isPaused ? "text-[#ff7351]" : "text-[#00FF41]"}>
+                  {isPaused ? "PAUSED" : "OPERATIONAL"}
+                </span>
+              </p>
+              <p className="text-[#adaaab] font-medium flex items-center gap-2 text-xs tracking-widest uppercase">
+                <div className={`w-1.5 h-1.5 rounded-full ${status.dot} ${status.label === 'LIVE' ? 'animate-pulse' : ''}`} />
+                Heartbeat: 
+                <span className={status.color}>
+                  {status.label}
+                </span>
+              </p>
+            </div>
           </div>
         </div>
 

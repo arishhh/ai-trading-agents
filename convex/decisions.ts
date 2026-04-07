@@ -13,6 +13,7 @@ export const insertDecision = mutation({
     executed: v.boolean(),
     krakenResponse: v.any(),
     pnlSnapshot: v.number(),
+    totalEquity: v.optional(v.number()),
     eip712Signature: v.optional(v.string()),
     source: v.optional(v.string()),
   },
@@ -51,5 +52,21 @@ export const getLatestTrades = query({
       .query("decisions")
       .order("desc")
       .take(args.count)
+  },
+})
+
+export const getEquityHistory = query({
+  handler: async (ctx): Promise<{ timestamp: number; totalEquity: number }[]> => {
+    const decisions = await ctx.db
+      .query("decisions")
+      .order("desc")
+      .take(100)
+    
+    return decisions
+      .filter((d) => d.totalEquity !== undefined)
+      .map((d) => ({
+        timestamp: d.timestamp,
+        totalEquity: d.totalEquity as number,
+      }))
   },
 })

@@ -27,6 +27,12 @@ async function runCycle() {
   const timeStr = new Date(timestamp).toLocaleTimeString()
   
   try {
+    // 0. Update heartbeat in Convex
+    await client.mutation("state:upsertValue" as any, { 
+      key: "heartbeat", 
+      value: timestamp 
+    })
+
     // 1. Check if agent is paused in Convex
     const pausedState = await client.query("state:getValue" as any, { key: "paused" })
     if (pausedState?.value === true) {
@@ -105,6 +111,7 @@ async function runCycle() {
       executed,
       krakenResponse,
       pnlSnapshot: finalStatus.unrealized_pnl,
+      totalEquity: finalStatus.current_value,
       eip712Signature,
       source: process.env.RAILWAY_SERVICE_ID ? "Railway (Cloud)" : "Local Terminal"
     })
