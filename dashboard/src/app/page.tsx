@@ -1,7 +1,7 @@
 "use client";
 
 import { useQuery, useMutation } from "convex/react";
-import { Play, Pause, Activity, TrendingUp, TrendingDown, Clock, ShieldAlert, Wallet } from "lucide-react";
+import { Play, Pause, Activity, TrendingUp, TrendingDown, Clock, ShieldAlert, Wallet, ShieldCheck } from "lucide-react";
 import { useEffect, useState } from "react";
 import KrakenChart from "@/components/KrakenChart";
 
@@ -228,6 +228,15 @@ export default function DashboardPage() {
                         <span className="text-white font-mono font-bold text-lg">
                             ${trade.price?.toLocaleString()}
                         </span>
+
+                        {/* Cryptographic Proof Tag */}
+                        {trade.eip712Signature && (
+                          <div className="mt-2 text-[8px] font-mono text-[#00fc40]/60 bg-[#00fc40]/5 px-2 py-1 rounded border border-[#00fc40]/10 flex items-center gap-1 w-fit group-hover:border-[#00fc40]/30 transition-colors">
+                            <ShieldCheck size={10} className="shrink-0" />
+                            <span className="hidden md:inline uppercase opacity-40 mr-1">Proof:</span>
+                            {trade.eip712Signature.slice(0, 10)}...{trade.eip712Signature.slice(-4)}
+                          </div>
+                        )}
                     </div>
 
                     <div className="flex-1">
