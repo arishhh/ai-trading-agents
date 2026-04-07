@@ -67,6 +67,10 @@ const VALIDATION_REGISTRY_ABI = [
   "function postEIP712Attestation(uint256 agentId, bytes32 checkpointHash, uint8 score, string notes) external"
 ]
 
+const REPUTATION_REGISTRY_ABI = [
+  "function submitFeedback(uint256 agentId, uint8 score, bytes32 outcomeRef, string comment, uint8 feedbackType) external"
+]
+
 /**
  * Setup Ethers Provider and Wallet
  */
@@ -287,6 +291,48 @@ export async function postCheckpoint(
     return tx.hash
   } catch (e) {
     console.error("ERC-8004: Checkpoint failed:", e)
+    return null
+  }
+}
+
+/**
+ * 5. Post Reputation Feedback
+ */
+export async function postReputation(
+  agentId: string,
+  score: number,
+  outcomeData: any
+): Promise<string | null> {
+  const signer = getSigner()
+  if (!signer || !agentId) return null
+
+  const registry = new ethers.Contract(REPUTATION_REGISTRY_ADDRESS, REPUTATION_REGISTRY_ABI, signer)
+  
+  try {
+    // Generate an outcome reference hash
+    const outcomeRef = ethers.keccak256(ethers.toUtf8Bytes(JSON.stringify({
+      timestamp: Date.now(),
+      action: outcomeData.action,
+      pnl: outcomeData.pnlSnapshot,
+      executed: outcomeData.executed
+    })))
+
+    // Feedback type 0: Performance, 1: Accuracy, etc. (Default to 0)
+    const feedbackType = outcomeData.executed ? 0 : 1
+    const comment = `InnovAgent trade cycle: ${outcomeData.action.toUpperCase()} | PnL: ${outcomeData.pnlSnapshot?.toFixed(2)}`
+
+    const tx = await registry.submitFeedback(
+      BigInt(agentId),
+      Math.min(100, Math.max(0, Math.floor(score * 100))),
+      outcomeRef,
+      comment.slice(0, 200),
+      feedbackType
+    )
+    
+    console.log(`ERC-8004: Reputation Posted: ${tx.hash}`)
+    return tx.hash
+  } catch (e) {
+    console.error("ERC-8004: Reputation feedback failed:", e)
     return null
   }
 }

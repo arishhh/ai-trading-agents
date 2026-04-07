@@ -3,7 +3,7 @@ import * as kraken from "./kraken"
 import * as claude from "./claude"
 import * as prism from "./prism"
 import { checkRisk } from "./risk"
-import { registerAgent, claimAllocation, submitTradeIntent, postCheckpoint, getAgentAddress } from "./erc8004"
+import { registerAgent, claimAllocation, submitTradeIntent, postCheckpoint, postReputation, getAgentAddress } from "./erc8004"
 import dotenv from "dotenv"
 import http from "http"
 
@@ -111,8 +111,9 @@ async function runCycle() {
     // 5. Log decision and final state to Convex
     const finalStatus = await kraken.getPaperStatus()
 
-    // 4.5 ERC-8004: Post Validation Checkpoint
+    // 4.5 ERC-8004: Post Validation Checkpoint and Reputation
     let checkpointTx: string | undefined = undefined
+    let reputationTx: string | undefined = undefined
     if (agentId) {
       console.log(`[${timeStr}] Posting validation checkpoint to ValidationRegistry...`)
       checkpointTx = await postCheckpoint(
@@ -120,6 +121,17 @@ async function runCycle() {
         decision,
         decision.confidence || 0,
         finalStatus.unrealized_pnl
+      ) || undefined
+
+      console.log(`[${timeStr}] Posting reputation feedback to ReputationRegistry...`)
+      reputationTx = await postReputation(
+        agentId,
+        decision.confidence || 0,
+        {
+          action: decision.action,
+          pnlSnapshot: finalStatus.unrealized_pnl,
+          executed
+        }
       ) || undefined
     }
 
@@ -137,6 +149,7 @@ async function runCycle() {
       eip712Signature,
       intentTx,
       checkpointTx,
+      reputationTx,
       source: process.env.RAILWAY_SERVICE_ID ? "Railway (Cloud)" : "Local Terminal"
     })
 
