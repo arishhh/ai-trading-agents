@@ -34,6 +34,30 @@ export default function DashboardPage() {
   const winCount = trades ? trades.filter((t: any) => t.pnlSnapshot > 0).length : 0;
   const winRate = trades && trades.length > 0 ? (winCount / trades.length) * 100 : 0;
 
+  const [timeLeft, setTimeLeft] = useState<string>("10:00");
+  const intervalMs = 600000; // 10 minutes matches .env
+
+  useEffect(() => {
+    if (!latestTrade) return;
+
+    const timer = setInterval(() => {
+      const now = Date.now();
+      const lastTradeTime = latestTrade.timestamp;
+      const nextTradeTime = lastTradeTime + intervalMs;
+      const remaining = nextTradeTime - now;
+
+      if (remaining <= 0) {
+        setTimeLeft("00:00");
+      } else {
+        const mins = Math.floor(remaining / 60000);
+        const secs = Math.floor((remaining % 60000) / 1000);
+        setTimeLeft(`${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`);
+      }
+    }, 1000);
+
+    return () => clearInterval(timer);
+  }, [latestTrade]);
+
   if (!mounted) return null;
 
   return (
@@ -246,7 +270,9 @@ export default function DashboardPage() {
                 </div>
                 <div className="pt-4 border-t border-[#262627]">
                     <h4 className="text-[10px] font-black text-white uppercase tracking-widest mb-2">Cycle Frequency</h4>
-                    <div className="text-2xl font-black font-[family-name:var(--font-space-grotesk)]">10:00<span className="text-xs text-[#adaaab] ml-1">MIN</span></div>
+                    <div className="text-2xl font-black font-[family-name:var(--font-space-grotesk)]">
+                      {timeLeft}<span className="text-xs text-[#adaaab] ml-1">MIN</span>
+                    </div>
                     <p className="text-[#adaaab] text-[11px] mt-2 italic">
                         The agent evaluates global sentiment and order books every 600 seconds.
                     </p>

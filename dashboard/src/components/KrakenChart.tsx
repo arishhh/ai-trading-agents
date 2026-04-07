@@ -17,7 +17,7 @@ export default function KrakenChart() {
     script.async = true;
     script.innerHTML = JSON.stringify({
       "autosize": true,
-      "symbol": "KRAKEN:XXBTZUSD",
+      "symbol": "KRAKEN:XBTUSD",
       "interval": "30",
       "timezone": "Etc/UTC",
       "theme": "dark",
