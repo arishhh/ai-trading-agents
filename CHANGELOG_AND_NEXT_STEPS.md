@@ -6,41 +6,34 @@ This document summarizes the recent mission-critical fixes and UI enhancements i
 
 ## 🚀 Recent Implementations
 
-### 1. Daily Loss Reset Logic (Fixed)
-The agent previously used a rolling 24-hour window for loss calculation, which caused "stuck" states even after a new day began.
-- **Change**: Replaced rolling window with a **Calendar Day Reset (UTC Midnight)**.
-- **Mechanism**: Utilizes the Convex `state` table to track `lastReset` (date string) and `todayLosses` (current day's total).
-- **Impact**: Trading resume automatically at 00:00 UTC regardless of the previous day's performance, while still enforcing a strict $500 daily safety cap.
+### 1. ERC-8004 On-Chain Protocol Integration
+The system has fully migrated from pure paper trading to live, verifiable on-chain trading using the ERC-8004 standard on the Sepolia testnet!
+- **Agent Registration**: The agent autonomously registers with the `AgentRegistry` and claims $100k sandbox capital from the `HackathonVault`.
+- **Cryptographic Trade Proofs**: Every AI-generated trade intent is signed via EIP-712 and submitted to the `RiskRouter` and `ValidationRegistry`.
+- **Leaderboard Status**: Successfully listed and actively trading on the lablab.ai x Surge hackathon leaderboard.
 
-### 2. High-Fidelity Terminal Dashboard
+### 2. High-Fidelity Terminal Dashboard Enhancements
 The frontend has been transformed into a reactive "Command Center":
+- **On-Chain Pulse Monitor**: Added a real-time monitor for the agent's Sepolia Heartbeat, Registry ID, and Etherscan transaction links for all trade intents.
 - **Kraken Real-time Liquidity Chart**: Integrated an advanced TradingView widget specifically synced to the **Kraken API** (KRAKEN:BTCUSD) to eliminate price discrepancies.
-- **Account Equity Tracking**: New live card showing "Total Equity" (Starting Balance + Unrealized PnL).
-- **Daily Risk Gauge**: A visual progress bar for the $500 daily limit, which changes color as the agent approaches the risk threshold.
-- **Neural Stream Polish**: 
-    - Added **AI Confidence Meters** for every decision.
-    - Improved reasoning text formatting.
-    - Integrated **Security Protocol** documentation in the sidebar.
+- **Account Equity Tracking**: Hardcoded default to the $100,000 HackathonVault allocation with real-time unrealized PnL adjustments.
+- **Neural Stream Polish**: Added AI Confidence Meters and improved formatting for explainable reasoning logs.
 
 ---
 
 ## 💡 Backend Discussion Points (Next Steps)
 
-These are technical refinements suggested for the next engineering cycle to further harden the system and improve the UI's data depth:
+These are technical refinements suggested for the next engineering cycle:
 
-1.  **Equity Snapshots**:
-    - *Proposed Change*: Modify `decisions:insertDecision` mutation to capture and log the `totalAccountBalance` obtained from `kraken.getPaperStatus()`.
-    - *Goal*: Allow the dashboard to show a true historical line chart of account growth instead of just a real-time snapshot.
+1.  **Mainnet Transition Preparation**:
+    - *Proposed Change*: Secure private key management via a key vault (e.g. AWS KMS or Azure KeyVault) rather than `.env` files for production mainnet.
+    - *Goal*: Eliminate the risk of key exposure.
 
-2.  **Agent Heartbeat System**:
-    - *Proposed Change*: Implement a background pulse that updates a `last_seen` timestamp in the `state` table every 60 seconds.
-    - *Goal*: Show a "Live/Offline" indicator with high precision even when the agent is between trading cycles.
+2.  **Comprehensive E2E Testing**:
+    - *Proposed Change*: Write an automated test suite verifying the EIP-712 signature generation against the exact contract ABIs.
+    - *Goal*: Prevent formatting errors from failing on-chain submissions.
 
-3.  **Advanced Performance Queries**:
-    - *Proposed Change*: Add a Convex query to pre-calculate the **Sharpe Ratio** and **Drawdown** directly in the backend.
-    - *Goal*: Offload heavy math from the React frontend to the Edge-backend for smoother dashboard performance.
-
-4.  **WebSocket Integration**:
+3.  **WebSocket Integration**:
     - *Proposed Change*: Shift from 10-minute polling to a Kraken Private WebSocket for real-time portfolio balance updates.
     - *Goal*: Instantaneous balance updates without waiting for the next agent cycle.
 

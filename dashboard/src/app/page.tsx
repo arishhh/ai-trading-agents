@@ -29,8 +29,8 @@ export default function DashboardPage() {
   const currentPrice = latestTrade?.price || 0;
   const unrealizedPnL = latestTrade?.pnlSnapshot || 0;
   
-  // Starting balance assumption for paper trading
-  const startingBalance = 10000;
+  // Starting balance matching the 100k ERC-8004 HackathonVault allocation
+  const startingBalance = 100000;
   const totalEquity = startingBalance + unrealizedPnL;
   
   const winCount = trades ? trades.filter((t: any) => t.pnlSnapshot > 0).length : 0;

@@ -30,5 +30,7 @@ https://www.youtube.com/watch?v=1wMBDjxESQg
 | `CONVEX_URL` | Your Convex deployment URL. |
 | `NEXT_PUBLIC_CONVEX_URL` | Same as above, for the dashboard. |
 | `PRISM_API_KEY` | (Optional) API key for PRISM market signals. |
-| `PAPER_MODE` | Set to `true` to use the local paper trading simulator. |
+| `PAPER_MODE` | Set to `false` to enable live Sepolia on-chain trading. |
 | `LOOP_INTERVAL_MS` | Trading cycle duration (Default: 600000 / 10 min). |
+| `AGENT_WALLET_KEY` | Your EVM wallet private key for EIP-712 signing (**DO NOT SHARE PUBLICLY!**). |
+| `RPC_URL` | Free public RPC node (e.g. `https://rpc.sepolia.org`) or Alchemy/Infura URL. |

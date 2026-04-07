@@ -4,14 +4,14 @@
 An autonomous AI agent that performs risk-aware crypto trading on Kraken using real-time market sentiment and technical analysis. Built with a reactive backend for instant dashboard updates and low-latency Groq LLM reasoning.
 
 **Long Description**:
-InnovAgent is an end-to-end autonomous agent that manages a crypto portfolio with institutional-grade logic. Every 10 minutes, the agent fetches live BTC/USD ticker and OHLC data from Kraken, along with RSI and volatility signals from the PRISM API. This high-density market context is processed by a Groq-powered 70B LLM brain, which generates a trade decision paired with a detailed "Internal Monologue" reasoning log.
+InnovAgent is an end-to-end autonomous agent that manages a crypto portfolio with institutional-grade logic, acting as a Cross-Domain Oracle Agent. Its "Brain" operates on the Ethereum Sepolia network via the ERC-8004 standard, while its "Eyes" monitor the Bitcoin market off-chain. Every 10 minutes, the agent fetches live BTC/USD ticker data from Kraken and volatility signals from the PRISM API. This market context is processed by a Groq-powered 70B LLM, which generates a trade decision paired with a detailed "Internal Monologue".
 
-The system is built on a "Reactive First" architecture. Using Convex, the agent's decisions are instantly pushed to a premium Next.js dashboard, allowing users to watch the AI's "thought process" in real-time without refreshing. The agent operates as a continuous background loop, making it a true 24/7 financial function that handles data ingestion, analysis, and execution autonomously.
+The system is fully integrated on-chain: it registers on the `AgentRegistry`, automatically claims sandbox capital from the `HackathonVault`, and cryptographically signs every trade decision (EIP-712) before submitting it to the `RiskRouter` and `ValidationRegistry`. This guarantees that every AI decision is auditable, immutable, and verifiable on the Sepolia testnet. 
 
-Safety is at the core of the design. The agent features a multi-layered risk management approach, including a built-in "Circuit Breaker" to pause trading after consecutive losses, a $200 per-trade hard cap, and a local Paper Trading simulator that allows for live-market strategy testing without risking real capital.
+The agent's status can be tracked via our custom "Reactive First" Next.js dashboard powered by Convex, which displays real-time AI reasoning logs, an "On-Chain Pulse" with direct Etherscan links, and a live Heartbeat indicator. We are actively ranked on the lablab.ai x Surge leaderboard!
 
 **Tech Tags**:
-Node.js, TypeScript, Next.js, Groq, KrakenCLI, PRISM, Convex, Railway, Vercel
+Node.js, TypeScript, Next.js, Groq, KrakenCLI, PRISM, Convex, Ethers.js, Sepolia, ERC-8004
 
 **Links**:
 *   **GitHub**: https://github.com/arishhh/ai-trading-agents
