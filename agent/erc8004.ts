@@ -1,65 +1,257 @@
 import { ethers } from 'ethers'
 import dotenv from 'dotenv'
+import { ConvexHttpClient } from "convex/browser"
 
 dotenv.config()
 
-/**
- * ERC-8004: Trade Intent Signing
- * Signs a trade decision using EIP-712 typed data structure to produce a verifiable
- * on-chain-compatible signature from the autonomous agent's identity key.
- */
+// Hardcoded Addresses for ERC-8004 Challenge
+const AGENT_REGISTRY_ADDRESS = "0x97b07dDc405B0c28B17559aFFE63BdB3632d0ca3"
+const HACKATHON_VAULT_ADDRESS = "0x0E7CD8ef9743FEcf94f9103033a044caBD45fC90"
+const RISK_ROUTER_ADDRESS = "0xd6A6952545FF6E6E6681c2d15C59f9EB8F40FdBC"
+const VALIDATION_REGISTRY_ADDRESS = "0x92bF63E5C7Ac6980f237a7164Ab413BE226187F1"
+const REPUTATION_REGISTRY_ADDRESS = "0x423a9904e39537a9997fbaF0f220d79D7d545763"
 
-// Agent signer wallet — uses env var or falls back to a deterministic demo key
-const AGENT_PRIVATE_KEY =
-  process.env.AGENT_PRIVATE_KEY ||
-  '0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80' // Hardhat account #0 — demo only
+const CHAIN_ID = 11155111 // Sepolia
 
-const wallet = new ethers.Wallet(AGENT_PRIVATE_KEY)
+const CONVEX_URL = (process.env.CONVEX_URL || "").replace(/\/$/, '')
+const client = new ConvexHttpClient(CONVEX_URL)
 
-// EIP-712 Domain
+// EIP-712 Domain for RiskRouter (TradeIntents)
 const DOMAIN = {
-  name: 'KrakenAI Agent',
+  name: 'RiskRouter',
   version: '1',
-  chainId: 1, // Ethereum mainnet chainId for canonical typing
+  chainId: CHAIN_ID,
+  verifyingContract: RISK_ROUTER_ADDRESS
 }
 
-// EIP-712 Types
+// EIP-712 Types for TradeIntent
 const TRADE_INTENT_TYPES = {
   TradeIntent: [
-    { name: 'action',     type: 'string'  },
-    { name: 'volume',     type: 'string'  }, // String to avoid float precision issues
-    { name: 'price',      type: 'string'  },
-    { name: 'confidence', type: 'string'  },
-    { name: 'timestamp',  type: 'uint256' },
+    { name: 'agentId',          type: 'uint256' },
+    { name: 'agentWallet',      type: 'address' },
+    { name: 'pair',             type: 'string'  },
+    { name: 'action',           type: 'string'  },
+    { name: 'amountUsdScaled',  type: 'uint256' },
+    { name: 'maxSlippageBps',   type: 'uint256' },
+    { name: 'nonce',            type: 'uint256' },
+    { name: 'deadline',         type: 'uint256' },
   ],
 }
 
-export interface TradeIntent {
-  action:     string
-  volume:     number
-  price:      number
-  confidence: number
-  timestamp:  number
+// EIP-712 Domain for AgentRegistry (Checkpoints)
+const AGENT_REGISTRY_DOMAIN = {
+  name: "AITradingAgent",
+  version: "1",
+  chainId: CHAIN_ID,
+  verifyingContract: AGENT_REGISTRY_ADDRESS
+}
+
+// Minimal ABIs
+const AGENT_REGISTRY_ABI = [
+  "function register(address agentWallet, string name, string description, string[] capabilities, string agentURI) external returns (uint256 agentId)",
+  "function isRegistered(uint256 agentId) external view returns (bool)",
+  "event AgentRegistered(uint256 indexed agentId, address indexed operatorWallet, address indexed agentWallet)"
+]
+
+const VAULT_ABI = [
+  "function claimAllocation(uint256 agentId) external",
+  "function hasClaimed(uint256 agentId) external view returns (bool)"
+]
+
+const RISK_ROUTER_ABI = [
+  "function submitTradeIntent((uint256 agentId, address agentWallet, string pair, string action, uint256 amountUsdScaled, uint256 maxSlippageBps, uint256 nonce, uint256 deadline) intent, bytes signature) external",
+  "function getIntentNonce(uint256 agentId) external view returns (uint256)"
+]
+
+const VALIDATION_REGISTRY_ABI = [
+  "function postEIP712Attestation(uint256 agentId, bytes32 checkpointHash, uint8 score, string notes) external"
+]
+
+/**
+ * Setup Ethers Provider and Wallet
+ */
+function getSigner() {
+  const rpcUrl = process.env.RPC_URL
+  const privateKey = process.env.AGENT_WALLET_KEY || process.env.OPERATOR_PRIVATE_KEY
+  
+  if (!rpcUrl || !privateKey) {
+    return null
+  }
+
+  try {
+    const provider = new ethers.JsonRpcProvider(rpcUrl)
+    return new ethers.Wallet(privateKey, provider)
+  } catch (e) {
+    console.error("Failed to initialize ethers signer:", e)
+    return null
+  }
 }
 
 /**
- * Signs a trade intent using EIP-712 structured signing.
- * Returns a 0x-prefixed hex signature string (65-byte secp256k1 ECDSA sig).
+ * 1. Register Agent
  */
-export async function signTradeIntent(intent: TradeIntent): Promise<string> {
-  const value = {
-    action:     intent.action,
-    volume:     intent.volume.toFixed(8),
-    price:      intent.price.toFixed(2),
-    confidence: intent.confidence.toFixed(4),
-    timestamp:  BigInt(intent.timestamp),
+export async function registerAgent(): Promise<string | null> {
+  const signer = getSigner()
+  if (!signer) {
+    console.warn("ERC-8004: Missing RPC_URL or AGENT_WALLET_KEY. Skipping registration.")
+    return null
   }
 
-  const signature = await wallet.signTypedData(DOMAIN, TRADE_INTENT_TYPES, value)
-  return signature // e.g. "0xabc123...1b"
+  // Check Convex first
+  const existingId = await client.query("state:getValue" as any, { key: "erc8004AgentId" })
+  if (existingId?.value) {
+    console.log(`ERC-8004: Agent already registered with ID ${existingId.value}`)
+    return existingId.value.toString()
+  }
+
+  console.log("ERC-8004: Registering agent on Sepolia...")
+  const registry = new ethers.Contract(AGENT_REGISTRY_ADDRESS, AGENT_REGISTRY_ABI, signer)
+  
+  try {
+    const tx = await registry.register(
+      signer.address,
+      "InnovAgent",
+      "Autonomous 70B Neural Trading Agent with Explainable Reasoning",
+      ["trading", "eip712-signing", "bitcoin-analysis"],
+      "https://github.com/arishhh/ai-trading-agents"
+    )
+    console.log(`ERC-8004: Registration TX Sent: ${tx.hash}`)
+    const receipt = await tx.wait()
+    
+    // Parse AgentRegistered event
+    const event = receipt.logs.find((log: any) => {
+      try {
+        const parsed = registry.interface.parseLog(log)
+        return parsed?.name === 'AgentRegistered'
+      } catch { return false }
+    })
+
+    if (event) {
+      const parsedLog = registry.interface.parseLog(event)
+      const agentId = parsedLog?.args.agentId
+      console.log(`ERC-8004: Agent Registered successfully! ID: ${agentId}`)
+      
+      await client.mutation("state:upsertValue" as any, { 
+        key: "erc8004AgentId", 
+        value: agentId.toString() 
+      })
+      
+      return agentId.toString()
+    }
+  } catch (e) {
+    console.error("ERC-8004: Registration failed:", e)
+  }
+  return null
 }
 
-/** Returns the agent wallet address (for logging / verification). */
+/**
+ * 2. Claim Allocation
+ */
+export async function claimAllocation(agentId: string): Promise<boolean> {
+  const signer = getSigner()
+  if (!signer || !agentId) return false
+
+  const vaultClaimed = await client.query("state:getValue" as any, { key: "vaultClaimed" })
+  if (vaultClaimed?.value === true) return true
+
+  console.log(`ERC-8004: Claiming sandbox allocation for Agent ${agentId}...`)
+  const vault = new ethers.Contract(HACKATHON_VAULT_ADDRESS, VAULT_ABI, signer)
+  
+  try {
+    const tx = await vault.claimAllocation(BigInt(agentId))
+    console.log(`ERC-8004: Claim TX Sent: ${tx.hash}`)
+    await tx.wait()
+    
+    await client.mutation("state:upsertValue" as any, { 
+      key: "vaultClaimed", 
+      value: true 
+    })
+    return true
+  } catch (e) {
+    console.error("ERC-8004: Claim failed:", e)
+    return false
+  }
+}
+
+/**
+ * 3. Submit Trade Intent
+ */
+export async function submitTradeIntent(
+  agentId: string,
+  action: string,
+  pair: string,
+  volume: number,
+  price: number
+): Promise<string | null> {
+  const signer = getSigner()
+  if (!signer || !agentId) return null
+
+  const router = new ethers.Contract(RISK_ROUTER_ADDRESS, RISK_ROUTER_ABI, signer)
+  
+  try {
+    const nonce = await router.getIntentNonce(BigInt(agentId))
+    const deadline = Math.floor(Date.now() / 1000) + 3600 // 1 hour buffer
+
+    const intent = {
+      agentId: BigInt(agentId),
+      agentWallet: signer.address,
+      pair: pair || "XBTUSD",
+      action: action.toUpperCase(),
+      amountUsdScaled: BigInt(Math.floor(volume * price * 100)), // USD * 100
+      maxSlippageBps: 100, // 1%
+      nonce: BigInt(nonce),
+      deadline: BigInt(deadline)
+    }
+
+    const signature = await signer.signTypedData(DOMAIN, TRADE_INTENT_TYPES, intent)
+    const tx = await router.submitTradeIntent(intent, signature)
+    console.log(`ERC-8004: Trade Intent Submitted: ${tx.hash}`)
+    return tx.hash
+  } catch (e) {
+    console.error("ERC-8004: Trade intent submission failed:", e)
+    return null
+  }
+}
+
+/**
+ * 4. Post Checkpoint
+ */
+export async function postCheckpoint(
+  agentId: string,
+  decision: any,
+  confidence: number,
+  pnlSnapshot: number
+): Promise<string | null> {
+  const signer = getSigner()
+  if (!signer || !agentId) return null
+
+  const validator = new ethers.Contract(VALIDATION_REGISTRY_ADDRESS, VALIDATION_REGISTRY_ABI, signer)
+  
+  try {
+    // Generate a reasoning hash
+    const reasoningHash = ethers.keccak256(ethers.toUtf8Bytes(decision.reason || "Autonomous AI decision"))
+    
+    // We use a simplified checkpoint hash for validation scoring
+    const checkpointHash = ethers.solidityPackedKeccak256(
+      ["uint256", "uint256", "string", "string", "bytes32"],
+      [BigInt(agentId), BigInt(Date.now()), decision.action, reasoningHash, ethers.randomBytes(32)]
+    )
+
+    const tx = await validator.postEIP712Attestation(
+      BigInt(agentId),
+      checkpointHash,
+      Math.floor(confidence * 100), // Score 0-100
+      decision.reason?.slice(0, 200) || "Neural decision posted"
+    )
+    console.log(`ERC-8004: Checkpoint Posted: ${tx.hash}`)
+    return tx.hash
+  } catch (e) {
+    console.error("ERC-8004: Checkpoint failed:", e)
+    return null
+  }
+}
+
 export function getAgentAddress(): string {
-  return wallet.address
+  const signer = getSigner()
+  return signer?.address || "0x0000000000000000000000000000000000000000"
 }

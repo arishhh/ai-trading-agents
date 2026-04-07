@@ -15,6 +15,8 @@ export const insertDecision = mutation({
     pnlSnapshot: v.number(),
     totalEquity: v.optional(v.number()),
     eip712Signature: v.optional(v.string()),
+    intentTx: v.optional(v.string()),
+    checkpointTx: v.optional(v.string()),
     source: v.optional(v.string()),
   },
   handler: async (ctx, args) => {

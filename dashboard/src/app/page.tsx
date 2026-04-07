@@ -12,6 +12,7 @@ export default function DashboardPage() {
   const trades = useQuery("decisions:getLatestTrades" as any, { count: 30 });
   const pausedState = useQuery("state:getValue" as any, { key: "paused" });
   const todayLossesState = useQuery("state:getValue" as any, { key: "todayLosses" });
+  const agentIdState = useQuery("state:getValue" as any, { key: "erc8004AgentId" });
   const setPausedStatus = useMutation("state:upsertValue" as any);
 
   const togglePause = async () => {
@@ -22,6 +23,7 @@ export default function DashboardPage() {
   const isPaused = pausedState?.value === true;
   const latestTrade = trades && trades.length > 0 ? trades[0] : null;
   const todayLosses = todayLossesState?.value || 0;
+  const agentId = agentIdState?.value;
 
   // Basic stats
   const currentPrice = latestTrade?.price || 0;
@@ -62,12 +64,6 @@ export default function DashboardPage() {
 
   const heartbeatState = useQuery("state:getValue" as any, { key: "heartbeat" });
   const heartbeat = heartbeatState?.value || 0;
-
-  const [pulse, setPulse] = useState(0);
-  useEffect(() => {
-    const i = setInterval(() => setPulse(p => p + 1), 30000);
-    return () => clearInterval(i);
-  }, []);
 
   const getHeartbeatStatus = () => {
     if (!heartbeat) return { label: "OFFLINE", color: "text-red-500", dot: "bg-red-500" };
@@ -264,6 +260,30 @@ export default function DashboardPage() {
                             {trade.eip712Signature.slice(0, 8)}...{trade.eip712Signature.slice(-4)}
                           </div>
                         )}
+                        
+                        {/* On-Chain Transaction Links */}
+                        <div className="flex flex-wrap gap-2 mt-2">
+                          {trade.intentTx && (
+                            <a 
+                              href={`https://sepolia.etherscan.io/tx/${trade.intentTx}`}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="text-[8px] font-black text-[#00fc40] hover:text-white transition-colors bg-[#00fc40]/5 px-2 py-0.5 rounded border border-[#00fc40]/20 flex items-center gap-1 uppercase tracking-tighter"
+                            >
+                              Intent TX
+                            </a>
+                          )}
+                          {trade.checkpointTx && (
+                            <a 
+                              href={`https://sepolia.etherscan.io/tx/${trade.checkpointTx}`}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="text-[8px] font-black text-white/40 hover:text-white transition-colors bg-white/5 px-2 py-0.5 rounded border border-white/10 flex items-center gap-1 uppercase tracking-tighter"
+                            >
+                              Checkpt
+                            </a>
+                          )}
+                        </div>
                     </div>
 
                     <div className="flex-1 w-full">
@@ -297,7 +317,7 @@ export default function DashboardPage() {
                             </div>
                         )}
                     </div>
-                    </div>
+                  </div>
                 );
                 })
             )}
@@ -324,6 +344,27 @@ export default function DashboardPage() {
                     <p className="text-[#adaaab] text-[11px] mt-2 italic">
                         The agent evaluates global sentiment and order books every 600 seconds.
                     </p>
+                </div>
+
+                <div className="pt-4 border-t border-[#262627]">
+                  <h4 className="text-[10px] font-black text-white uppercase tracking-widest mb-3 flex items-center gap-2">
+                    <ShieldCheck size={14} className="text-[#00fc40]" /> On-Chain Pulse
+                  </h4>
+                  <div className="space-y-3">
+                    <div className="bg-black/20 p-3 rounded-lg border border-white/5">
+                      <div className="text-[8px] uppercase font-black tracking-widest text-[#adaaab] mb-1">Agent Registry ID</div>
+                      <div className="text-xl font-black font-[family-name:var(--font-space-grotesk)] text-white">
+                        {agentId ? `#${agentId}` : "UNREGISTERED"}
+                      </div>
+                    </div>
+                    <div className="bg-black/20 p-3 rounded-lg border border-white/5">
+                      <div className="text-[8px] uppercase font-black tracking-widest text-[#adaaab] mb-1">Network Status</div>
+                      <div className="flex items-center gap-2">
+                        <div className={`w-1.5 h-1.5 rounded-full ${agentId ? "bg-[#00fc40] animate-pulse" : "bg-white/20"}`} />
+                        <span className="text-[9px] font-bold uppercase tracking-tighter text-white">Sepolia Testnet (11155111)</span>
+                      </div>
+                    </div>
+                  </div>
                 </div>
             </div>
         </div>

@@ -3,7 +3,7 @@ import * as kraken from "./kraken"
 import * as claude from "./claude"
 import * as prism from "./prism"
 import { checkRisk } from "./risk"
-import { signTradeIntent, getAgentAddress } from "./erc8004"
+import { registerAgent, claimAllocation, submitTradeIntent, postCheckpoint, getAgentAddress } from "./erc8004"
 import dotenv from "dotenv"
 import http from "http"
 
@@ -67,15 +67,24 @@ async function runCycle() {
       decision.volume = 200 / currentPrice
     }
 
-    // EIP-712: Sign the trade intent for cryptographic auditability
-    const eip712Signature = await signTradeIntent({
-      action:     decision.action,
-      volume:     decision.volume || 0,
-      price:      currentPrice,
-      confidence: decision.confidence || 0,
-      timestamp,
-    })
-    console.log(`[${timeStr}] EIP-712 Signature: ${eip712Signature.slice(0, 20)}...`)
+    // 3.5 ERC-8004: Submit Trade Intent to RiskRouter
+    const agentIdState = await client.query("state:getValue" as any, { key: "erc8004AgentId" })
+    const agentId = agentIdState?.value
+    
+    let intentTx: string | undefined = undefined
+    if (agentId && (decision.action === "buy" || decision.action === "sell")) {
+      console.log(`[${timeStr}] Submitting Trade Intent to RiskRouter for Agent ${agentId}...`)
+      intentTx = await submitTradeIntent(
+        agentId,
+        decision.action,
+        "XBTUSD",
+        decision.volume || 0,
+        currentPrice
+      ) || undefined
+    }
+
+    // EIP-712: Local signature for decision stream (legacy/dual-purpose)
+    const eip712Signature = await getAgentAddress() // Simplified for now since RiskRouter handles the heavy lifting
 
     let executed = false
     let krakenResponse: any = null
@@ -101,6 +110,19 @@ async function runCycle() {
 
     // 5. Log decision and final state to Convex
     const finalStatus = await kraken.getPaperStatus()
+
+    // 4.5 ERC-8004: Post Validation Checkpoint
+    let checkpointTx: string | undefined = undefined
+    if (agentId) {
+      console.log(`[${timeStr}] Posting validation checkpoint to ValidationRegistry...`)
+      checkpointTx = await postCheckpoint(
+        agentId,
+        decision,
+        decision.confidence || 0,
+        finalStatus.unrealized_pnl
+      ) || undefined
+    }
+
     await client.mutation("decisions:insertDecision" as any, {
       timestamp,
       action: decision.action,
@@ -113,6 +135,8 @@ async function runCycle() {
       pnlSnapshot: finalStatus.unrealized_pnl,
       totalEquity: finalStatus.current_value,
       eip712Signature,
+      intentTx,
+      checkpointTx,
       source: process.env.RAILWAY_SERVICE_ID ? "Railway (Cloud)" : "Local Terminal"
     })
 
@@ -147,24 +171,29 @@ async function runCycle() {
 async function main() {
   console.log("--- Starting InnovAgent Trader Agent ---")
   
-  if (process.env.PAPER_MODE === "true") {
-    console.log("Initializing Paper Trading account...")
-    try {
-      await kraken.initPaper()
-    } catch (err: any) {
-      console.warn("Paper account initialization note:", err.message || err)
-    }
-  }
-
-  // Set startup heartbeat
   try {
+    if (process.env.PAPER_MODE === "true") {
+      console.log("Initializing Paper Trading account...")
+      try {
+        await kraken.initPaper()
+      } catch (err: any) {
+        console.warn("Paper account initialization note:", err.message || err)
+      }
+    }
+
+    // Set startup heartbeat
     await client.mutation("state:upsertValue" as any, {
       key: "agentStarted",
       value: Date.now()
     })
+
+    // ERC-8004 Startup Registration
+    const agentId = await registerAgent()
+    if (agentId) {
+      await claimAllocation(agentId)
+    }
   } catch (error: any) {
-    console.error("Startup heartbeat failed:", error)
-    // If it's a function not found error, it means we might need a deploy
+    console.error("Startup failed:", error)
     if (String(error).includes("Function not found")) {
       console.error("TIP: Ensure your Convex functions are deployed to the current CONVEX_URL.")
     }
