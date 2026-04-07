@@ -171,7 +171,6 @@ export async function registerAgent(): Promise<string | null> {
         if (recoveredId) {
           console.log(`ERC-8004: Recovered Agent ID from chain: ${recoveredId}`)
           await client.mutation("state:upsertValue" as any, { key: "erc8004AgentId", value: recoveredId })
-          await client.mutation("state:upsertValue" as any, { key: "vaultClaimed", value: true })
           return recoveredId
         } else {
           console.log("ERC-8004: Could not find AgentRegistered logs for this wallet.")
