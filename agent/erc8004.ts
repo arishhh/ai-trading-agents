@@ -138,8 +138,39 @@ export async function registerAgent(): Promise<string | null> {
       
       return agentId.toString()
     }
-  } catch (e) {
-    console.error("ERC-8004: Registration failed:", e)
+  } catch (e: any) {
+    if (String(e).includes("already registered") || e.message?.includes("already registered")) {
+      console.log("ERC-8004: Wallet already registered on-chain. Scanning logs to recover Agent ID...")
+      try {
+        const eventSignature = ethers.id('AgentRegistered(uint256,address,address)')
+        const paddedAddress = ethers.zeroPadValue(signer.address, 32)
+        
+        const logs = await signer.provider?.getLogs({
+          address: AGENT_REGISTRY_ADDRESS,
+          fromBlock: 0,
+          toBlock: 'latest',
+          topics: [eventSignature, null, null, paddedAddress]
+        })
+
+        if (logs && logs.length > 0) {
+          const log = logs[logs.length - 1]
+          const agentId = BigInt(log.topics[1]).toString()
+          console.log(`ERC-8004: Recovered Agent ID from chain: ${agentId}`)
+          
+          await client.mutation("state:upsertValue" as any, { 
+            key: "erc8004AgentId", 
+            value: agentId 
+          })
+          
+          return agentId
+        } else {
+          console.log("ERC-8004: Could not find AgentRegistered logs for this wallet.")
+        }
+      } catch (err) {
+        console.error("ERC-8004: Failed to recover Agent ID from logs:", err)
+      }
+    }
+    console.error("ERC-8004: Registration failed:", e.reason || e.message || e)
   }
   return null
 }
