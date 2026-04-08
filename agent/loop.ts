@@ -32,7 +32,7 @@ async function runCycle() {
 
     // 2. Cloud Persistence: Fetch Paper Trading State from Convex
     let paperStateState = await client.query("state:getValue" as any, { key: "paperTradingState" })
-    // Never risk more than $1,000 per trade. 
+    // Maximize leaderboard impact: $20,000 per trade strategy. 
     let currentPaperState: kraken.PaperState
 
     if (!paperStateState?.value) {
