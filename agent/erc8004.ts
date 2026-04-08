@@ -337,8 +337,12 @@ export async function postReputation(
     return tx.hash
   } catch (e: any) {
     if (e.message?.includes("operator cannot self-rate")) {
-      console.log("ERC-8004: Skiping self-rating (Success! Reputation on leaderboard is managed by external validator)")
+      console.log("ERC-8004: Skipping self-rating (reputation managed by external validator)")
       return "0x_SELF_RATE_SKIPPED"
+    }
+    if (e.message?.includes("already rated this agent")) {
+      console.log(`ERC-8004: Already rated agent ${agentId} this epoch — skipping duplicate.`)
+      return "0x_ALREADY_RATED"
     }
     console.error("ERC-8004: Reputation feedback failed:", e.message || e)
     return null

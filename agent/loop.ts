@@ -61,10 +61,10 @@ async function runCycle() {
     const lastPrice = lastPriceState?.value || currentPrice
     const priceChangePct = Math.abs((currentPrice - lastPrice) / lastPrice) * 100
     
-    // threshold of 0.1% change to trigger AI analysis, otherwise default to HOLD
+    // threshold of 0.05% change to trigger AI analysis, otherwise default to HOLD
     let decision: any
-    if (priceChangePct < 0.1 && portfolioStatus.total_trades > 0) {
-      console.log(`[${timeStr}] Market is flat (< 0.1% change). Skipping Groq call to save quota.`)
+    if (priceChangePct < 0.05 && portfolioStatus.total_trades > 0) {
+      console.log(`[${timeStr}] Market is flat (< 0.05% change). Skipping AI call to save quota.`)
       decision = {
         action: 'hold',
         volume: 0,
@@ -139,8 +139,8 @@ async function runCycle() {
       const lastCheckpoint = lastCheckpointState?.value || 0
       const hoursSinceLast = (Date.now() - lastCheckpoint) / (1000 * 60 * 60)
 
-      // Always post for trades, otherwise once every 2 hours for liveness
-      if (decision.action === "buy" || decision.action === "sell" || hoursSinceLast >= 2) {
+      // Always post for trades, otherwise once every 30 minutes for liveness
+      if (decision.action === "buy" || decision.action === "sell" || hoursSinceLast >= 0.5) {
         console.log(`[${timeStr}] Posting validation checkpoint to ValidationRegistry...`)
         checkpointTx = await postCheckpoint(
           agentId,
@@ -167,18 +167,7 @@ async function runCycle() {
           })
         }
       } else {
-        console.log(`[${timeStr}] Skipping checkpoint/reputation (last one was ${hoursSinceLast.toFixed(1)}h ago)`)
-      }
-
-      // 5.5 Periodic "System Signaling" to boost reputation interaction points
-      // We rate the Global Validator (Agent 1) to show our agent is observing the environment.
-      if (Math.random() > 0.8) {
-        console.log(`[${timeStr}] Signaling system health to ReputationRegistry (Agent 1)...`)
-        await postReputation("1", 0.95, {
-          action: "verify_system",
-          pnlSnapshot: 0,
-          executed: true
-        })
+        console.log(`[${timeStr}] Skipping checkpoint/reputation (last one was ${hoursSinceLast.toFixed(1)}h ago, next in ${(0.5 - hoursSinceLast).toFixed(1)}h)`)
       }
     }
 
