@@ -20,14 +20,17 @@ export const INITIAL_PAPER_STATE: PaperState = {
 /**
  * Fetch data from Kraken Public REST API.
  */
-async function krakenPublic(endpoint: string, params: string = "", retries = 3) {
+async function krakenPublic(endpoint: string, params: string = "", retries = 5) {
   const url = `https://api.kraken.com/0/public/${endpoint}${params ? '?' + params : ''}`
   
   for (let i = 0; i < retries; i++) {
     try {
       const response = await fetch(url, {
-        headers: { 'User-Agent': 'InnovAgent-Trader/1.0' },
-        signal: AbortSignal.timeout(5000) // 5s timeout
+        headers: { 
+          'User-Agent': 'InnovAgent-Trader/1.1',
+          'Accept': 'application/json'
+        },
+        signal: AbortSignal.timeout(15000) // Increase to 15s for stability
       })
       const result: any = await response.json()
       if (result.error && result.error.length > 0) {
@@ -36,7 +39,7 @@ async function krakenPublic(endpoint: string, params: string = "", retries = 3) 
       return result.result
     } catch (err: any) {
       if (i === retries - 1) {
-        console.warn(`Kraken API failed after ${retries} attempts, using mock fallback.`)
+        console.warn(`[Kraken] API failed after ${retries} attempts, using mock fallback. Error: ${err.message}`)
         // High-fidelity fallback for Demo/Hackathon
         if (endpoint === 'Ticker') {
            return { "XXBTZUSD": { c: [(71000 + (Math.random() * 500)).toFixed(2)] } }
@@ -56,7 +59,7 @@ async function krakenPublic(endpoint: string, params: string = "", retries = 3) 
  * Get current ticker info for BTCUSD.
  */
 export async function getTicker() {
-  const data = await krakenPublic('Ticker', 'pair=XBTUSD')
+  const data = await krakenPublic('Ticker', 'pair=XXBTZUSD')
   const pairData = data[Object.keys(data)[0]]
   return { price: parseFloat(pairData.c[0]) }
 }
@@ -65,7 +68,10 @@ export async function getTicker() {
  * Get last 10 10-minute OHLC candles.
  */
 export async function getOHLC() {
-  const data = await krakenPublic('OHLC', 'pair=XBTUSD&interval=10')
+  // Wait 1s before calling OHLC to avoid rate limit after Ticker call
+  await new Promise(resolve => setTimeout(resolve, 1000))
+  
+  const data = await krakenPublic('OHLC', 'pair=XXBTZUSD&interval=10')
   const pairData = data[Object.keys(data)[0]]
   const last10 = pairData.slice(-11, -1).map((c: any) => ({
     time: c[0],
