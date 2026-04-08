@@ -1,33 +1,20 @@
-import fs from 'fs'
-import path from 'path'
+/**
+ * Kraken & Paper Trading Simulation Module (Cloud-Ready)
+ */
 
-// Path to a local JSON file that will store our paper trading state
-const PAPER_STATE_PATH = path.join(process.cwd(), 'paper-state.json')
-
-interface PaperState {
+export interface PaperState {
   balance: number
   holdings: number
   total_trades: number
-  avg_price: number // Add Average Entry Price tracking
+  avg_price: number
 }
 
-// Ensure the paper state file exists or create a default one
-function getPaperState(): PaperState {
-  if (!fs.existsSync(PAPER_STATE_PATH)) {
-    const initialState: PaperState = { balance: 10000, holdings: 0, total_trades: 0, avg_price: 0 }
-    fs.writeFileSync(PAPER_STATE_PATH, JSON.stringify(initialState, null, 2))
-    return initialState
-  }
-  const state = JSON.parse(fs.readFileSync(PAPER_STATE_PATH, 'utf-8'))
-  // Migration: Add avg_price if it doesn't exist
-  if (state.avg_price === undefined) {
-    state.avg_price = 0
-  }
-  return state
-}
-
-function savePaperState(state: PaperState) {
-  fs.writeFileSync(PAPER_STATE_PATH, JSON.stringify(state, null, 2))
+// Default initial state for a 100k account
+export const INITIAL_PAPER_STATE: PaperState = {
+  balance: 100000,
+  holdings: 0,
+  total_trades: 0,
+  avg_price: 0
 }
 
 /**
@@ -71,7 +58,6 @@ async function krakenPublic(endpoint: string, params: string = "", retries = 3) 
 export async function getTicker() {
   const data = await krakenPublic('Ticker', 'pair=XBTUSD')
   const pairData = data[Object.keys(data)[0]]
-  // 'c' is [price, whole_lot_volume]
   return { price: parseFloat(pairData.c[0]) }
 }
 
@@ -79,10 +65,8 @@ export async function getTicker() {
  * Get last 10 10-minute OHLC candles.
  */
 export async function getOHLC() {
-  // interval=10 for 10-minute candles
   const data = await krakenPublic('OHLC', 'pair=XBTUSD&interval=10')
   const pairData = data[Object.keys(data)[0]]
-  // Last 10 entries (excluding the current unclosed candle which is usually last)
   const last10 = pairData.slice(-11, -1).map((c: any) => ({
     time: c[0],
     open: parseFloat(c[1]),
@@ -95,13 +79,52 @@ export async function getOHLC() {
 }
 
 /**
- * Get paper trading account status (SIMULATED).
+ * Simulate paper buy order using provided state.
+ * Returns the modified state.
  */
-export async function getPaperStatus() {
-  const state = getPaperState()
+export async function paperBuy(state: PaperState, volume: number): Promise<PaperState> {
   const { price } = await getTicker()
-  
-  // Real Unrealized PnL based on Average Entry Price
+  const cost = volume * price
+
+  if (state.balance >= cost) {
+    const nextState = { ...state }
+    const totalCost = (nextState.holdings * nextState.avg_price) + cost
+    nextState.holdings += volume
+    nextState.avg_price = nextState.holdings > 0 ? totalCost / nextState.holdings : price
+    nextState.balance -= cost
+    nextState.total_trades += 1
+    return nextState
+  } else {
+    throw new Error(`Insufficient paper balance: ${state.balance.toFixed(2)} < ${cost.toFixed(2)}`)
+  }
+}
+
+/**
+ * Simulate paper sell order using provided state.
+ * Returns the modified state.
+ */
+export async function paperSell(state: PaperState, volume: number): Promise<PaperState> {
+  const { price } = await getTicker()
+
+  if (state.holdings >= volume) {
+    const nextState = { ...state }
+    nextState.balance += volume * price
+    nextState.holdings -= volume
+    if (nextState.holdings <= 0) {
+      nextState.avg_price = 0
+    }
+    nextState.total_trades += 1
+    return nextState
+  } else {
+    throw new Error(`Insufficient paper holdings: ${state.holdings.toFixed(4)} < ${volume.toFixed(4)}`)
+  }
+}
+
+/**
+ * Calculate PnL and Status using provided state.
+ */
+export async function getPaperStatus(state: PaperState) {
+  const { price } = await getTicker()
   const unrealized_pnl = state.holdings > 0 
     ? state.holdings * (price - state.avg_price)
     : 0
@@ -111,62 +134,7 @@ export async function getPaperStatus() {
     unrealized_pnl: unrealized_pnl,
     avg_price: state.avg_price,
     holdings: state.holdings,
-    total_trades: state.total_trades
+    total_trades: state.total_trades,
+    current_price: price
   }
-}
-
-/**
- * Place a paper buy order (SIMULATED).
- */
-export async function paperBuy(volume: number) {
-  const state = getPaperState()
-  const { price } = await getTicker()
-  const cost = volume * price
-
-  if (state.balance >= cost) {
-    // Update Average Entry Price (weighted)
-    const totalCost = (state.holdings * state.avg_price) + cost
-    state.holdings += volume
-    state.avg_price = totalCost / state.holdings
-    
-    state.balance -= cost
-    state.total_trades += 1
-    savePaperState(state)
-    return { status: 'success', action: 'buy', volume, price, avg_price: state.avg_price }
-  } else {
-    throw new Error(`Insufficient paper balance: ${state.balance.toFixed(2)} < ${cost.toFixed(2)}`)
-  }
-}
-
-/**
- * Place a paper sell order (SIMULATED).
- */
-export async function paperSell(volume: number) {
-  const state = getPaperState()
-  const { price } = await getTicker()
-
-  if (state.holdings >= volume) {
-    state.balance += volume * price
-    state.holdings -= volume
-    
-    // If we sold everything, reset avg_price
-    if (state.holdings <= 0) {
-      state.avg_price = 0
-    }
-    
-    state.total_trades += 1
-    savePaperState(state)
-    return { status: 'success', action: 'sell', volume, price }
-  } else {
-    throw new Error(`Insufficient paper holdings: ${state.holdings.toFixed(4)} < ${volume.toFixed(4)}`)
-  }
-}
-
-/**
- * Initialize paper trading account (SIMULATED).
- */
-export async function initPaper() {
-  const initialState: PaperState = { balance: 10000, holdings: 0, total_trades: 0, avg_price: 0 }
-  savePaperState(initialState)
-  return { status: 'initialized' }
 }
