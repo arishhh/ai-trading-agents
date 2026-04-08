@@ -26,8 +26,8 @@ export interface MarketData {
  */
 export async function makeDecision(marketData: MarketData) {
   try {
-    const maxVolume = 1000 / marketData.currentPrice;
-    const prompt = `You are a strategic trend-following crypto trading agent managing a $100,000 paper portfolio. You receive BTC/USD market data every 10 minutes. Analyze the last 20 5-minute OHLC candles to determine trend (total 100 minutes).
+    const maxVolume = 20000 / marketData.currentPrice;
+    const prompt = `You are an elite institutional trend-following crypto trading agent managing a $100,000 paper portfolio. You are competing for the top of the leaderboard. Analyze the last 20 5-minute OHLC candles to determine trend (total 100 minutes).
 
     You also receive RSI (above 70 = overbought, below 30 = oversold) and volatility score. Factor these into your confidence score. 
 
@@ -36,14 +36,14 @@ export async function makeDecision(marketData: MarketData) {
     - ONLY SELL if you hold BTC AND:
         1. At least 12 of the last 20 candles were RED (closed lower than they opened).
         2. OR RSI is above 75 (extreme overbought).
-        3. OR Take Profit: Current price is > 1.5% above your avgEntryPrice.
-        4. OR Stop Loss: Current price is < 0.75% below your avgEntryPrice.
+        3. OR Take Profit: Current price is > 2.5% above your avgEntryPrice (Objective: $500 profit).
+        4. OR Stop Loss: Current price is < 1.5% below your avgEntryPrice (Protection: $300 limit).
     
     ### EXECUTION ###
-    - Never risk more than $1,000 per trade. 
+    - Maximize leaderboard impact. Never risk more than $20,000 per trade. 
     - The maximum allowed trade volume based on the current price is ${maxVolume}. 
-    - Your volume MUST be a pre-computed decimal number (e.g., 0.00298).
-    - Be decisive. Do not default to HOLD if a trend reversal is clearly visible.
+    - Your volume MUST be a pre-computed decimal number (e.g., 0.285).
+    - Be decisive. Do not default to HOLD if a trend reversal or profit target is hit.
 
     Respond ONLY with valid JSON: {action: 'buy'|'sell'|'hold', volume: number, reason: string, confidence: number}`
 

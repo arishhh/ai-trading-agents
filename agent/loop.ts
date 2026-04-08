@@ -66,7 +66,7 @@ async function runCycle() {
     const rsiTrigger = signals && (signals.rsi < 30 || signals.rsi > 75)
     // 12/20 = 60%, same as 6/10
     const trendTrigger = (greenCount >= 12 && currentPaperState.holdings === 0) || (redCount >= 12 && currentPaperState.holdings > 0)
-    const profitTrigger = pnlPct >= 0.015 || pnlPct <= -0.0075
+    const profitTrigger = pnlPct >= 0.025 || pnlPct <= -0.015
 
     let decision: any
     let isGated = false
@@ -99,9 +99,9 @@ async function runCycle() {
 
     // 5. Normalization & Execution
     if (typeof decision.volume === 'number') {
-      decision.volume = Math.min(decision.volume, 1000 / currentPrice)
+      decision.volume = Math.min(decision.volume, 20000 / currentPrice)
     } else {
-      decision.volume = 1000 / currentPrice
+      decision.volume = 20000 / currentPrice
     }
 
     const agentIdState = await client.query("state:getValue" as any, { key: "erc8004AgentId" })
