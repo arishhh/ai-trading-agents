@@ -109,21 +109,6 @@ async function runCycle() {
     const agentIdState = await client.query("state:getValue" as any, { key: "erc8004AgentId" })
     const agentId = agentIdState?.value
     
-    let checkpointTx: string | undefined = undefined
-    if (agentId) {
-      console.log(`[${timeStr}] Posting Validation Checkpoint (Heartbeat)...`)
-      try {
-        checkpointTx = await postCheckpoint(
-          agentId, 
-          decision, 
-          decision.confidence || 0.5, 
-          portfolioStatus.unrealized_pnl
-        ) || undefined
-      } catch (checkpointError) {
-        console.error(`[${timeStr}] Checkpoint Failed (Gas?):`, checkpointError)
-      }
-    }
-
     if (agentId && (decision.action === "buy" || decision.action === "sell")) {
       console.log(`[${timeStr}] Submitting Trade Intent to RiskRouter...`)
       intentTx = await submitTradeIntent(agentId, decision.action, "XBTUSD", decision.volume || 0, currentPrice) || undefined
@@ -170,7 +155,6 @@ async function runCycle() {
       pnlSnapshot: portfolioStatus.unrealized_pnl,
       totalEquity: portfolioStatus.current_value,
       intentTx,
-      checkpointTx,
       source: `InnovAgent-Cloud${isGated ? '-Gated' : ''}`
     })
 
