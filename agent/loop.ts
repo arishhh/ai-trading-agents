@@ -32,6 +32,7 @@ async function runCycle() {
 
     // 2. Cloud Persistence: Fetch Paper Trading State from Convex
     let paperStateState = await client.query("state:getValue" as any, { key: "paperTradingState" })
+    // Never risk more than $1,000 per trade. 
     let currentPaperState: kraken.PaperState
 
     if (!paperStateState?.value) {
@@ -98,9 +99,9 @@ async function runCycle() {
 
     // 5. Normalization & Execution
     if (typeof decision.volume === 'number') {
-      decision.volume = Math.min(decision.volume, 200 / currentPrice)
+      decision.volume = Math.min(decision.volume, 1000 / currentPrice)
     } else {
-      decision.volume = 200 / currentPrice
+      decision.volume = 1000 / currentPrice
     }
 
     const agentIdState = await client.query("state:getValue" as any, { key: "erc8004AgentId" })

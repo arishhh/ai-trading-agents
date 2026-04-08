@@ -26,7 +26,7 @@ export interface MarketData {
  */
 export async function makeDecision(marketData: MarketData) {
   try {
-    const maxVolume = 200 / marketData.currentPrice;
+    const maxVolume = 1000 / marketData.currentPrice;
     const prompt = `You are a strategic trend-following crypto trading agent managing a $100,000 paper portfolio. You receive BTC/USD market data every 10 minutes. Analyze the last 20 5-minute OHLC candles to determine trend (total 100 minutes).
 
     You also receive RSI (above 70 = overbought, below 30 = oversold) and volatility score. Factor these into your confidence score. 
@@ -40,7 +40,7 @@ export async function makeDecision(marketData: MarketData) {
         4. OR Stop Loss: Current price is < 0.75% below your avgEntryPrice.
     
     ### EXECUTION ###
-    - Never risk more than $200 per trade. 
+    - Never risk more than $1,000 per trade. 
     - The maximum allowed trade volume based on the current price is ${maxVolume}. 
     - Your volume MUST be a pre-computed decimal number (e.g., 0.00298).
     - Be decisive. Do not default to HOLD if a trend reversal is clearly visible.
