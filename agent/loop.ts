@@ -68,6 +68,9 @@ async function runCycle() {
 
     let decision: any
     let isGated = false
+    let executed = false
+    let krakenResponse: any = null
+    let intentTx: string | undefined = undefined
 
     if (trendTrigger || rsiTrigger || profitTrigger) {
       console.log(`[${timeStr}] Gating Triggered: ${trendTrigger ? 'Trend Shift' : rsiTrigger ? 'RSI Extreme' : 'PnL Limit'}. consulting AI...`)
@@ -87,7 +90,7 @@ async function runCycle() {
       decision = {
         action: 'hold',
         volume: 0,
-        reason: `Gated: Trend stable (${greenCount}G/${redCount}R), RSI ${signals?.rsi || 'N/A'}, PnL ${(pnlPct * 100).toFixed(2)}%. No action required.`,
+        reason: `[Gated] Trend stable (G:${greenCount}/R:${redCount}), RSI:${signals?.rsi || 'N/A'}, PnL:${(pnlPct * 100).toFixed(2)}%`,
         confidence: 0.5
       }
     }
@@ -102,14 +105,10 @@ async function runCycle() {
     const agentIdState = await client.query("state:getValue" as any, { key: "erc8004AgentId" })
     const agentId = agentIdState?.value
     
-    let intentTx: string | undefined = undefined
     if (agentId && (decision.action === "buy" || decision.action === "sell")) {
       console.log(`[${timeStr}] Submitting Trade Intent to RiskRouter...`)
       intentTx = await submitTradeIntent(agentId, decision.action, "XBTUSD", decision.volume || 0, currentPrice) || undefined
     }
-
-    let executed = false
-    let krakenResponse: any = null
 
     if (decision.action === "buy" || decision.action === "sell") {
       const risk = await checkRisk(decision.volume, currentPrice)
@@ -141,6 +140,7 @@ async function runCycle() {
       reason: decision.reason,
       confidence: decision.confidence || 0,
       executed,
+      krakenResponse, // Ensure this is always sent (even if null)
       pnlSnapshot: portfolioStatus.unrealized_pnl,
       totalEquity: portfolioStatus.current_value,
       intentTx,
