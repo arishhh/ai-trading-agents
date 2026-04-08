@@ -265,7 +265,7 @@ async function main() {
   })
 
   // Start the 10-minute loop
-  const interval = parseInt(process.env.LOOP_INTERVAL_MS || "300000")
+  const interval = parseInt(process.env.LOOP_INTERVAL_MS || "600000")
   console.log(`Loop started - taking trades every ${interval / 1000} seconds.`)
   
   // Initial run
