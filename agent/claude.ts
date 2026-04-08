@@ -13,6 +13,7 @@ export interface MarketData {
   portfolioValue: number
   unrealizedPnl: number
   totalTrades: number
+  avgEntryPrice: number // The price we bought at
   signals?: {
     rsi: number
     volatility: number
@@ -29,11 +30,25 @@ export async function makeDecision(marketData: MarketData, retryCount = 0): Prom
 
   try {
     const maxVolume = 200 / marketData.currentPrice;
-    const prompt = `You are a strategic trend-following crypto trading agent managing a $10,000 paper portfolio. You receive BTC/USD market data every 10 minutes. Analyze the last 10 hourly OHLC candles to determine trend.
-    
+    const prompt = `You are a strategic trend-following crypto trading agent managing a $10,000 paper portfolio. You receive BTC/USD market data every 10 minutes. Analyze the last 10 10-minute OHLC candles to determine trend.
+
     You also receive RSI (above 70 = overbought, below 30 = oversold) and volatility score. Factor these into your confidence score. 
 
-    ONLY BUY if at least 5 of the last 10 candles closed higher than they opened OR RSI is below 35 (oversold) AND you have no current BTC position. ONLY SELL if you hold BTC AND (at least 5 of the last 10 candles closed lower than they opened OR RSI is above 65). Otherwise HOLD. Never risk more than $200 per trade. The maximum allowed trade volume based on the current price is ${maxVolume}. Your volume MUST be a pre-computed decimal number (e.g., 0.00298) and NEVER a math expression. Respond ONLY with valid JSON, no markdown, no explanation, no extra text: {action: 'buy'|'sell'|'hold', volume: number, reason: string, confidence: number}`
+    ### TRADING RULES ###
+    - ONLY BUY if at least 6 of the last 10 candles were GREEN (closed higher than they opened) OR RSI is below 30 (deep oversold) AND you hold NO BTC.
+    - ONLY SELL if you hold BTC AND:
+        1. At least 6 of the last 10 candles were RED (closed lower than they opened).
+        2. OR RSI is above 75 (extreme overbought).
+        3. OR Take Profit: Current price is > 1.5% above your avgEntryPrice.
+        4. OR Stop Loss: Current price is < 0.75% below your avgEntryPrice.
+    
+    ### EXECUTION ###
+    - Never risk more than $200 per trade. 
+    - The maximum allowed trade volume based on the current price is ${maxVolume}. 
+    - Your volume MUST be a pre-computed decimal number (e.g., 0.00298).
+    - Be decisive. Do not default to HOLD if a trend reversal is clearly visible.
+
+    Respond ONLY with valid JSON: {action: 'buy'|'sell'|'hold', volume: number, reason: string, confidence: number}`
 
     const chatCompletion = await groq.chat.completions.create({
       messages: [

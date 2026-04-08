@@ -53,6 +53,7 @@ async function runCycle() {
       portfolioValue: portfolioStatus.current_value,
       unrealizedPnl: portfolioStatus.unrealized_pnl,
       totalTrades: portfolioStatus.total_trades,
+      avgEntryPrice: portfolioStatus.avg_price,
       signals
     }
 

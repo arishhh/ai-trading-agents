@@ -8,16 +8,22 @@ interface PaperState {
   balance: number
   holdings: number
   total_trades: number
+  avg_price: number // Add Average Entry Price tracking
 }
 
 // Ensure the paper state file exists or create a default one
 function getPaperState(): PaperState {
   if (!fs.existsSync(PAPER_STATE_PATH)) {
-    const initialState: PaperState = { balance: 10000, holdings: 0, total_trades: 0 }
+    const initialState: PaperState = { balance: 10000, holdings: 0, total_trades: 0, avg_price: 0 }
     fs.writeFileSync(PAPER_STATE_PATH, JSON.stringify(initialState, null, 2))
     return initialState
   }
-  return JSON.parse(fs.readFileSync(PAPER_STATE_PATH, 'utf-8'))
+  const state = JSON.parse(fs.readFileSync(PAPER_STATE_PATH, 'utf-8'))
+  // Migration: Add avg_price if it doesn't exist
+  if (state.avg_price === undefined) {
+    state.avg_price = 0
+  }
+  return state
 }
 
 function savePaperState(state: PaperState) {
@@ -46,10 +52,10 @@ async function krakenPublic(endpoint: string, params: string = "", retries = 3) 
         console.warn(`Kraken API failed after ${retries} attempts, using mock fallback.`)
         // High-fidelity fallback for Demo/Hackathon
         if (endpoint === 'Ticker') {
-           return { "XXBTZUSD": { c: [(66000 + (Math.random() * 500)).toFixed(2)] } }
+           return { "XXBTZUSD": { c: [(71000 + (Math.random() * 500)).toFixed(2)] } }
         }
         if (endpoint === 'OHLC') {
-           return { "XXBTZUSD": Array(12).fill(0).map((_, i) => [Date.now() - i*3600000, "65000", "66000", "64900", "65500"]) }
+           return { "XXBTZUSD": Array(12).fill(0).map((_, i) => [Date.now() - i*600000, "70000", "71000", "69900", "70500"]) }
         }
         throw new Error(`Kraken API Request Failed: ${err.message}`)
       }
@@ -70,10 +76,11 @@ export async function getTicker() {
 }
 
 /**
- * Get last 10 hourly OHLC candles.
+ * Get last 10 10-minute OHLC candles.
  */
 export async function getOHLC() {
-  const data = await krakenPublic('OHLC', 'pair=XBTUSD&interval=60')
+  // interval=10 for 10-minute candles
+  const data = await krakenPublic('OHLC', 'pair=XBTUSD&interval=10')
   const pairData = data[Object.keys(data)[0]]
   // Last 10 entries (excluding the current unclosed candle which is usually last)
   const last10 = pairData.slice(-11, -1).map((c: any) => ({
@@ -81,7 +88,8 @@ export async function getOHLC() {
     open: parseFloat(c[1]),
     high: parseFloat(c[2]),
     low: parseFloat(c[3]),
-    close: parseFloat(c[4])
+    close: parseFloat(c[4]),
+    isGreen: parseFloat(c[4]) > parseFloat(c[1])
   }))
   return last10
 }
@@ -93,13 +101,16 @@ export async function getPaperStatus() {
   const state = getPaperState()
   const { price } = await getTicker()
   
-  const unrealized_pnl = state.holdings * (price - 0) // Simplified PNL for paper trading
-  // Note: For a more accurate PNL, we'd track 'average_buy_price'.
-  // But for the hackathon baseline, we just track current equity.
+  // Real Unrealized PnL based on Average Entry Price
+  const unrealized_pnl = state.holdings > 0 
+    ? state.holdings * (price - state.avg_price)
+    : 0
   
   return {
     current_value: state.balance + (state.holdings * price),
     unrealized_pnl: unrealized_pnl,
+    avg_price: state.avg_price,
+    holdings: state.holdings,
     total_trades: state.total_trades
   }
 }
@@ -113,11 +124,15 @@ export async function paperBuy(volume: number) {
   const cost = volume * price
 
   if (state.balance >= cost) {
-    state.balance -= cost
+    // Update Average Entry Price (weighted)
+    const totalCost = (state.holdings * state.avg_price) + cost
     state.holdings += volume
+    state.avg_price = totalCost / state.holdings
+    
+    state.balance -= cost
     state.total_trades += 1
     savePaperState(state)
-    return { status: 'success', action: 'buy', volume, price }
+    return { status: 'success', action: 'buy', volume, price, avg_price: state.avg_price }
   } else {
     throw new Error(`Insufficient paper balance: ${state.balance.toFixed(2)} < ${cost.toFixed(2)}`)
   }
@@ -133,6 +148,12 @@ export async function paperSell(volume: number) {
   if (state.holdings >= volume) {
     state.balance += volume * price
     state.holdings -= volume
+    
+    // If we sold everything, reset avg_price
+    if (state.holdings <= 0) {
+      state.avg_price = 0
+    }
+    
     state.total_trades += 1
     savePaperState(state)
     return { status: 'success', action: 'sell', volume, price }
@@ -145,7 +166,7 @@ export async function paperSell(volume: number) {
  * Initialize paper trading account (SIMULATED).
  */
 export async function initPaper() {
-  const initialState: PaperState = { balance: 10000, holdings: 0, total_trades: 0 }
+  const initialState: PaperState = { balance: 10000, holdings: 0, total_trades: 0, avg_price: 0 }
   savePaperState(initialState)
   return { status: 'initialized' }
 }
