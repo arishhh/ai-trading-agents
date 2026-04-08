@@ -3,7 +3,7 @@ import * as kraken from "./kraken"
 import * as claude from "./claude"
 import * as prism from "./prism"
 import { checkRisk } from "./risk"
-import { registerAgent, claimAllocation, submitTradeIntent, postCheckpoint, postReputation, getAgentAddress, getWalletBalance } from "./erc8004"
+import { registerAgent, claimAllocation, submitTradeIntent, getAgentAddress, getWalletBalance } from "./erc8004"
 import dotenv from "dotenv"
 import http from "http"
 
@@ -131,45 +131,10 @@ async function runCycle() {
     // 5. Log decision and final state to Convex
     const finalStatus = await kraken.getPaperStatus()
 
-    // 4.5 ERC-8004: Post Validation Checkpoint and Reputation (Smart Logic)
-    let checkpointTx: string | undefined = undefined
-    let reputationTx: string | undefined = undefined
-    if (agentId) {
-      const lastCheckpointState = await client.query("state:getValue" as any, { key: "lastCheckpointTimestamp" })
-      const lastCheckpoint = lastCheckpointState?.value || 0
-      const hoursSinceLast = (Date.now() - lastCheckpoint) / (1000 * 60 * 60)
-
-      // Always post for trades, otherwise once every 30 minutes for liveness
-      if (decision.action === "buy" || decision.action === "sell" || hoursSinceLast >= 0.5) {
-        console.log(`[${timeStr}] Posting validation checkpoint to ValidationRegistry...`)
-        checkpointTx = await postCheckpoint(
-          agentId,
-          decision,
-          decision.confidence || 0,
-          finalStatus.unrealized_pnl
-        ) || undefined
-
-        console.log(`[${timeStr}] Posting reputation feedback to ReputationRegistry...`)
-        reputationTx = await postReputation(
-          agentId,
-          decision.confidence || 0,
-          {
-            action: decision.action,
-            pnlSnapshot: finalStatus.unrealized_pnl,
-            executed
-          }
-        ) || undefined
-
-        if (checkpointTx || reputationTx) {
-          await client.mutation("state:upsertValue" as any, { 
-            key: "lastCheckpointTimestamp", 
-            value: Date.now() 
-          })
-        }
-      } else {
-        console.log(`[${timeStr}] Skipping checkpoint/reputation (last one was ${hoursSinceLast.toFixed(1)}h ago, next in ${(0.5 - hoursSinceLast).toFixed(1)}h)`)
-      }
-    }
+    // 4.5 ERC-8004: Validation & Reputation are now JUDGE-ONLY per Discord update
+    // The judge bot now handles all attestations every 4 hours automatically.
+    const checkpointTx: string | undefined = undefined
+    const reputationTx: string | undefined = undefined
 
     // 4.6 Update Wallet Balance and Gas Warning
     const balance = await getWalletBalance()
