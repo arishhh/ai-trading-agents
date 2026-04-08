@@ -29,7 +29,7 @@ export async function makeDecision(marketData: MarketData, retryCount = 0): Prom
 
   try {
     const maxVolume = 200 / marketData.currentPrice;
-    const prompt = `You are a strategic trend-following crypto trading agent managing a $10,000 paper portfolio. You receive BTC/USD market data every 5 minutes. Analyze the last 10 hourly OHLC candles to determine trend.
+    const prompt = `You are a strategic trend-following crypto trading agent managing a $10,000 paper portfolio. You receive BTC/USD market data every 10 minutes. Analyze the last 10 hourly OHLC candles to determine trend.
     
     You also receive RSI (above 70 = overbought, below 30 = oversold) and volatility score. Factor these into your confidence score. 
 
