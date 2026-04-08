@@ -50,6 +50,8 @@ async function runCycle() {
 
     // 3. Fetch Market Data
     const { price: currentPrice } = await kraken.getTicker()
+    // Cache for fallback resilience
+    await client.mutation("state:upsertValue" as any, { key: "lastPrice", value: currentPrice })
     const candles = await kraken.getOHLC()
     const portfolioStatus = await kraken.getPaperStatus(currentPaperState)
     const signals = await prism.getSignals()
@@ -115,15 +117,22 @@ async function runCycle() {
     if (decision.action === "buy" || decision.action === "sell") {
       const risk = await checkRisk(decision.volume, currentPrice)
       if (risk.allowed) {
+        let result: any
         if (decision.action === "buy") {
-          currentPaperState = await kraken.paperBuy(currentPaperState, decision.volume)
-          executed = true
+          result = await kraken.paperBuy(currentPaperState, decision.volume)
         } else if (decision.action === "sell") {
-          currentPaperState = await kraken.paperSell(currentPaperState, decision.volume)
-          executed = true
+          result = await kraken.paperSell(currentPaperState, decision.volume)
         }
-        // Save new state to Cloud
-        await client.mutation("state:upsertValue" as any, { key: "paperTradingState", value: currentPaperState })
+
+        if (result?.success) {
+          currentPaperState = result.state
+          executed = true
+          // Save new state to Cloud
+          await client.mutation("state:upsertValue" as any, { key: "paperTradingState", value: currentPaperState })
+        } else {
+          decision.action = "hold"
+          decision.reason = `execution failed: ${result?.error || 'unknown error'}`
+        }
       } else {
         decision.action = "hold"
         decision.reason = `risk rejected: ${risk.reason}`

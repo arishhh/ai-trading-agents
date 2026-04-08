@@ -1,6 +1,10 @@
-/**
- * Kraken & Paper Trading Simulation Module (Cloud-Ready)
- */
+import { ConvexHttpClient } from "convex/browser"
+import dotenv from "dotenv"
+
+dotenv.config()
+
+const CONVEX_URL = (process.env.CONVEX_URL || "").replace(/\/$/, '')
+const client = new ConvexHttpClient(CONVEX_URL)
 
 export interface PaperState {
   balance: number
@@ -39,12 +43,24 @@ async function krakenPublic(endpoint: string, params: string = "", retries = 5) 
       return result.result
     } catch (err: any) {
       if (i === retries - 1) {
-        console.warn(`[Kraken] API failed after ${retries} attempts, using mock fallback. Error: ${err.message}`)
-        // High-fidelity fallback for Demo/Hackathon
+        console.warn(`[Kraken] API failed after ${retries} attempts, using dynamic fallback. Error: ${err.message}`)
+        
         if (endpoint === 'Ticker') {
-           return { "XXBTZUSD": { c: [(71000 + (Math.random() * 500)).toFixed(2)] } }
+           try {
+             const lastPriceState: any = await client.query("state:getValue" as any, { key: "lastPrice" })
+             if (lastPriceState?.value) {
+               console.log(`[Kraken] Fallback: Using last known price from Convex: $${lastPriceState.value}`)
+               return { "XXBTZUSD": { c: [lastPriceState.value.toString()] } }
+             }
+           } catch (fallbackErr) {
+             console.error("[Kraken] Failed to fetch lastPrice fallback from Convex.")
+           }
+           // Ultimate safety net (~$70k range)
+           return { "XXBTZUSD": { c: [(70000 + (Math.random() * 500)).toFixed(2)] } }
         }
+        
         if (endpoint === 'OHLC') {
+           // Return generic training-friendly data if OHLC is down
            return { "XXBTZUSD": Array(22).fill(0).map((_, i) => [Date.now() - i*300000, "70000", "71000", "69900", "70500"]) }
         }
         throw new Error(`Kraken API Request Failed: ${err.message}`)
@@ -91,7 +107,7 @@ export async function getOHLC() {
  * Simulate paper buy order using provided state.
  * Returns the modified state.
  */
-export async function paperBuy(state: PaperState, volume: number): Promise<PaperState> {
+export async function paperBuy(state: PaperState, volume: number): Promise<{ success: boolean, state: PaperState, error?: string }> {
   const { price } = await getTicker()
   const cost = volume * price
 
@@ -102,9 +118,9 @@ export async function paperBuy(state: PaperState, volume: number): Promise<Paper
     nextState.avg_price = nextState.holdings > 0 ? totalCost / nextState.holdings : price
     nextState.balance -= cost
     nextState.total_trades += 1
-    return nextState
+    return { success: true, state: nextState }
   } else {
-    throw new Error(`Insufficient paper balance: ${state.balance.toFixed(2)} < ${cost.toFixed(2)}`)
+    return { success: false, error: `Insufficient paper balance: ${state.balance.toFixed(2)} < ${cost.toFixed(2)}`, state }
   }
 }
 
@@ -112,7 +128,7 @@ export async function paperBuy(state: PaperState, volume: number): Promise<Paper
  * Simulate paper sell order using provided state.
  * Returns the modified state.
  */
-export async function paperSell(state: PaperState, volume: number): Promise<PaperState> {
+export async function paperSell(state: PaperState, volume: number): Promise<{ success: boolean, state: PaperState, error?: string }> {
   const { price } = await getTicker()
 
   if (state.holdings >= volume) {
@@ -123,9 +139,9 @@ export async function paperSell(state: PaperState, volume: number): Promise<Pape
       nextState.avg_price = 0
     }
     nextState.total_trades += 1
-    return nextState
+    return { success: true, state: nextState }
   } else {
-    throw new Error(`Insufficient paper holdings: ${state.holdings.toFixed(4)} < ${volume.toFixed(4)}`)
+    return { success: false, error: `Insufficient paper holdings: ${state.holdings.toFixed(4)} < ${volume.toFixed(4)}`, state }
   }
 }
 
