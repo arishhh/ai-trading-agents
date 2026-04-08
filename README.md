@@ -4,17 +4,16 @@ InnovAgent is a fully autonomous, verifiable crypto-trading agent built on the *
 
 ### 📜 Protocol Integration (ERC-8004)
 InnovAgent is a first-class citizen of the **ERC-8004 (Proof of Intent)** ecosystem on Sepolia:
-*   **ValidationRegistry**: Every trade decision (Buy/Sell/Hold) is signed via **EIP-712** and posted as a permanent attestation. This ensures "Proof of Intelligence"—we don't just trade; we prove why we traded.
-*   **ReputationRegistry**: The agent participates in peer-to-peer signaling, providing feedback to the global validator to maintain a high-trust network and a **95+ Validation Score**.
-*   **On-Chain Verifiability**: Users can audit every AI reasoning log against the transaction hashes stored in the Validation Registry.
+*   **ValidationRegistry**: Every trade intent (Buy/Sell/Hold) is signed via **EIP-712** and submitted to the RiskRouter. The official **Judge Bot** validates these intents on-chain to provide an objective "Proof of Intelligence" score.
+*   **ReputationRegistry**: The agent manages a high-trust profile by delivering consistent positive PnL and accurate market reasoning, allowing the Judge Bot to assign a **95+ Reputation Score**.
+*   **On-Chain Verifiability**: Users and judges can audit every trade intent against the cryptographic hashes stored in the Validation Registry.
 
 ### ✨ Key Features
-- **Smart Volatility Guard**: Automatically detects flat markets to skip redundant AI calls, preserving API quota while maintaining a consistent heartbeat on the leaderboard.
-- **Explainable AI (XAI)**: No "blackbox" trading. Every action includes a natural language reason derived from real-time RSI, trend, and volatility signals.
+- **Judge-Bot Resilience**: First-in-class dynamic pricing fallback. If the Kraken API is delayed, the agent automatically pivots to the "Last Known Price" cached in Convex, preventing "hallucinated" data from triggering Judge-Bot penalties.
 - **Institutional Risk Guardrails**:
-    - **$200 Trade Cap**: Hard limit on per-trade volume.
-    - **$500 Daily Loss Limit**: Automated circuit breaker to prevent liquidation.
-    - **Consecutive Loss Pause**: Automatic system halt after 3 failed trades for manual review.
+    - **$21,000 Trade Cap**: Optimized for high-stakes leaderboard position sizing.
+    - **$2,000 Daily Loss Limit**: Professional drawdown management for sustained uptime.
+    - **Consecutive Loss Pause**: Automatic circuit breaker after 3 straight losses.
 
 ### 🌐 Live Dashboard
 https://ai-trading-innovagent.vercel.app/
