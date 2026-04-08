@@ -3,7 +3,7 @@ import * as kraken from "./kraken"
 import * as claude from "./claude"
 import * as prism from "./prism"
 import { checkRisk } from "./risk"
-import { registerAgent, claimAllocation, submitTradeIntent, postCheckpoint, getAgentAddress } from "./erc8004"
+import { registerAgent, claimAllocation, submitTradeIntent, postCheckpoint, getAgentAddress, getWalletBalance } from "./erc8004"
 import dotenv from "dotenv"
 import http from "http"
 
@@ -56,9 +56,29 @@ async function runCycle() {
       signals
     }
 
-    // 3. Get AI decision
-    const decision = await claude.makeDecision(marketData)
-    console.log(`[${timeStr}] AI Decision: ${decision.action.toUpperCase()} | Reason: ${decision.reason}`)
+    // 2.5 Market Sensitivity Check (Gas/Quota Optimization)
+    const lastPriceState = await client.query("state:getValue" as any, { key: "lastPrice" })
+    const lastPrice = lastPriceState?.value || currentPrice
+    const priceChangePct = Math.abs((currentPrice - lastPrice) / lastPrice) * 100
+    
+    // threshold of 0.1% change to trigger AI analysis, otherwise default to HOLD
+    let decision: any
+    if (priceChangePct < 0.1 && portfolioStatus.total_trades > 0) {
+      console.log(`[${timeStr}] Market is flat (< 0.1% change). Skipping Groq call to save quota.`)
+      decision = {
+        action: 'hold',
+        volume: 0,
+        reason: 'market stability; caching previous sentiment',
+        confidence: 0.5
+      }
+    } else {
+      // 3. Get AI decision
+      decision = await claude.makeDecision(marketData)
+      console.log(`[${timeStr}] AI Decision: ${decision.action.toUpperCase()} | Reason: ${decision.reason}`)
+      
+      // Update last price in Convex only when we actually do a full cycle
+      await client.mutation("state:upsertValue" as any, { key: "lastPrice", value: currentPrice })
+    }
     
     // Normalize volume to prevent math expression errors and hard cap at $200
     if (typeof decision.volume === 'number') {
@@ -111,16 +131,39 @@ async function runCycle() {
     // 5. Log decision and final state to Convex
     const finalStatus = await kraken.getPaperStatus()
 
-    // 4.5 ERC-8004: Post Validation Checkpoint
+    // 4.5 ERC-8004: Post Validation Checkpoint (Smart Logic)
     let checkpointTx: string | undefined = undefined
     if (agentId) {
-      console.log(`[${timeStr}] Posting validation checkpoint to ValidationRegistry...`)
-      checkpointTx = await postCheckpoint(
-        agentId,
-        decision,
-        decision.confidence || 0,
-        finalStatus.unrealized_pnl
-      ) || undefined
+      const lastCheckpointState = await client.query("state:getValue" as any, { key: "lastCheckpointTimestamp" })
+      const lastCheckpoint = lastCheckpointState?.value || 0
+      const hoursSinceLast = (Date.now() - lastCheckpoint) / (1000 * 60 * 60)
+
+      // Always post for trades, otherwise once every 2 hours for liveness
+      if (decision.action === "buy" || decision.action === "sell" || hoursSinceLast >= 2) {
+        console.log(`[${timeStr}] Posting validation checkpoint to ValidationRegistry...`)
+        checkpointTx = await postCheckpoint(
+          agentId,
+          decision,
+          decision.confidence || 0,
+          finalStatus.unrealized_pnl
+        ) || undefined
+
+        if (checkpointTx) {
+          await client.mutation("state:upsertValue" as any, { 
+            key: "lastCheckpointTimestamp", 
+            value: Date.now() 
+          })
+        }
+      } else {
+        console.log(`[${timeStr}] Skipping checkpoint (last one was ${hoursSinceLast.toFixed(1)}h ago)`)
+      }
+    }
+
+    // 4.6 Update Wallet Balance and Gas Warning
+    const balance = await getWalletBalance()
+    await client.mutation("state:upsertValue" as any, { key: "walletBalance", value: balance })
+    if (parseFloat(balance) < 0.005) {
+      console.warn(`[${timeStr}] LOW GAS WARNING: Wallet balance is only ${balance} ETH!`)
     }
 
     await client.mutation("decisions:insertDecision" as any, {

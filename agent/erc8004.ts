@@ -285,9 +285,29 @@ export async function postCheckpoint(
     )
     console.log(`ERC-8004: Checkpoint Posted: ${tx.hash}`)
     return tx.hash
-  } catch (e) {
-    console.error("ERC-8004: Checkpoint failed:", e)
+  } catch (e: any) {
+    if (e.code === 'INSUFFICIENT_FUNDS') {
+      console.error("ERC-8004: Checkpoint failed due to INSUFFICIENT_FUNDS. Please fund your wallet!")
+    } else {
+      console.error("ERC-8004: Checkpoint failed:", e)
+    }
     return null
+  }
+}
+
+/**
+ * Get current wallet balance in ETH.
+ */
+export async function getWalletBalance(): Promise<string> {
+  const signer = getSigner()
+  if (!signer || !signer.provider) return "0"
+  
+  try {
+    const balance = await signer.provider.getBalance(signer.address)
+    return ethers.formatEther(balance)
+  } catch (e) {
+    console.error("Failed to get wallet balance:", e)
+    return "0"
   }
 }
 
