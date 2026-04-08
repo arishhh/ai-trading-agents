@@ -45,7 +45,7 @@ async function krakenPublic(endpoint: string, params: string = "", retries = 5) 
            return { "XXBTZUSD": { c: [(71000 + (Math.random() * 500)).toFixed(2)] } }
         }
         if (endpoint === 'OHLC') {
-           return { "XXBTZUSD": Array(12).fill(0).map((_, i) => [Date.now() - i*600000, "70000", "71000", "69900", "70500"]) }
+           return { "XXBTZUSD": Array(22).fill(0).map((_, i) => [Date.now() - i*300000, "70000", "71000", "69900", "70500"]) }
         }
         throw new Error(`Kraken API Request Failed: ${err.message}`)
       }
@@ -65,15 +65,18 @@ export async function getTicker() {
 }
 
 /**
- * Get last 10 10-minute OHLC candles.
+ * Get last 20 5-minute OHLC candles (total 100 mins).
  */
 export async function getOHLC() {
   // Wait 1s before calling OHLC to avoid rate limit after Ticker call
   await new Promise(resolve => setTimeout(resolve, 1000))
   
-  const data = await krakenPublic('OHLC', 'pair=XXBTZUSD&interval=10')
+  // interval=5 is the closest supported timeframe for granular 10-minute trends
+  const data = await krakenPublic('OHLC', 'pair=XXBTZUSD&interval=5')
   const pairData = data[Object.keys(data)[0]]
-  const last10 = pairData.slice(-11, -1).map((c: any) => ({
+  
+  // Last 20 5-minute candles = 100 minutes of history
+  const last20 = pairData.slice(-21, -1).map((c: any) => ({
     time: c[0],
     open: parseFloat(c[1]),
     high: parseFloat(c[2]),
@@ -81,7 +84,7 @@ export async function getOHLC() {
     close: parseFloat(c[4]),
     isGreen: parseFloat(c[4]) > parseFloat(c[1])
   }))
-  return last10
+  return last20
 }
 
 /**

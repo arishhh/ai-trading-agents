@@ -1,10 +1,10 @@
-import Groq from 'groq-sdk'
-import dotenv from 'dotenv'
+import Groq from "groq-sdk"
+import dotenv from "dotenv"
 
 dotenv.config()
 
 const groq = new Groq({
-  apiKey: process.env.GROQ_API_KEY
+  apiKey: process.env.GROQ_API_KEY,
 })
 
 export interface MarketData {
@@ -22,22 +22,19 @@ export interface MarketData {
 }
 
 /**
- * Send market data to Groq for a trading decision.
- * Returns a structured JSON decision.
+ * Get trading decision from Claude (via Groq).
  */
-export async function makeDecision(marketData: MarketData, retryCount = 0): Promise<any> {
-  const MAX_RETRIES = 3;
-
+export async function makeDecision(marketData: MarketData) {
   try {
     const maxVolume = 200 / marketData.currentPrice;
-    const prompt = `You are a strategic trend-following crypto trading agent managing a $10,000 paper portfolio. You receive BTC/USD market data every 10 minutes. Analyze the last 10 10-minute OHLC candles to determine trend.
+    const prompt = `You are a strategic trend-following crypto trading agent managing a $100,000 paper portfolio. You receive BTC/USD market data every 10 minutes. Analyze the last 20 5-minute OHLC candles to determine trend (total 100 minutes).
 
     You also receive RSI (above 70 = overbought, below 30 = oversold) and volatility score. Factor these into your confidence score. 
 
     ### TRADING RULES ###
-    - ONLY BUY if at least 6 of the last 10 candles were GREEN (closed higher than they opened) OR RSI is below 30 (deep oversold) AND you hold NO BTC.
+    - ONLY BUY if at least 12 of the last 20 candles were GREEN (closed higher than they opened) OR RSI is below 30 (deep oversold) AND you hold NO BTC.
     - ONLY SELL if you hold BTC AND:
-        1. At least 6 of the last 10 candles were RED (closed lower than they opened).
+        1. At least 12 of the last 20 candles were RED (closed lower than they opened).
         2. OR RSI is above 75 (extreme overbought).
         3. OR Take Profit: Current price is > 1.5% above your avgEntryPrice.
         4. OR Stop Loss: Current price is < 0.75% below your avgEntryPrice.
@@ -52,31 +49,20 @@ export async function makeDecision(marketData: MarketData, retryCount = 0): Prom
 
     const chatCompletion = await groq.chat.completions.create({
       messages: [
-        { role: 'system', content: prompt },
-        { role: 'user', content: JSON.stringify(marketData) }
+        { role: "system", content: prompt },
+        { role: "user", content: `Current Price: $${marketData.currentPrice.toFixed(2)}, avgEntryPrice: $${marketData.avgEntryPrice.toFixed(2)}, portfolioValue: $${marketData.portfolioValue.toFixed(2)}, unrealizedPnl: $${marketData.unrealizedPnl.toFixed(2)}, totalTrades: ${marketData.totalTrades}, Signals: ${JSON.stringify(marketData.signals)}, OHLC: ${JSON.stringify(marketData.candles)}` }
       ],
-      model: 'llama-3.3-70b-versatile', 
-      response_format: { type: 'json_object' }
+      model: "llama-3.3-70b-versatile",
+      temperature: 0.1,
+      response_format: { type: "json_object" }
     })
 
-    let content = chatCompletion.choices[0].message.content || '{}'
-    content = content.replace(/```json/g, '').replace(/```/g, '').trim()
-
-    return JSON.parse(content)
-  } catch (error: any) {
-    if (error.status === 429 && retryCount < MAX_RETRIES) {
-      const waitTime = Math.pow(2, retryCount) * 2000; // 2s, 4s, 8s exponential backoff
-      console.warn(`Groq rate limit hit (429). Retrying in ${waitTime/1000}s... (Attempt ${retryCount + 1}/${MAX_RETRIES})`);
-      await new Promise(res => setTimeout(res, waitTime));
-      return makeDecision(marketData, retryCount + 1);
-    }
+    const content = chatCompletion.choices[0]?.message?.content
+    if (!content) throw new Error("Empty response from AI")
     
-    console.error('Groq decision failed:', error.message)
-    return {
-      action: 'hold',
-      volume: 0,
-      reason: `error: ${error.message}`,
-      confidence: 0
-    }
+    return JSON.parse(content)
+  } catch (error) {
+    console.error("AI Decision Error:", error)
+    return { action: "hold", volume: 0, reason: "ai error", confidence: 0 }
   }
 }

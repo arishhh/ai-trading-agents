@@ -36,12 +36,11 @@ async function runCycle() {
 
     if (!paperStateState?.value) {
       console.log(`[${timeStr}] Initializing Cloud State with $100,000 baseline...`)
-      // MIGRATION: Seeding the current performance if known, else default
       currentPaperState = {
         balance: 100000,
-        holdings: 0.011, // Carrying over roughly $780 profit/holdings as discussed
-        total_trades: 1,
-        avg_price: 71000
+        holdings: 0,
+        total_trades: 0,
+        avg_price: 0
       }
       await client.mutation("state:upsertValue" as any, { key: "paperTradingState", value: currentPaperState })
     } else {
@@ -55,6 +54,7 @@ async function runCycle() {
     const signals = await prism.getSignals()
 
     // 4. PRE-AI FILTER (Gated Strategy to save Quota)
+    // Scaled for 20 5-minute candles (100 mins) to match previous logic
     const greenCount = candles.filter((c: any) => c.isGreen).length
     const redCount = candles.length - greenCount
     const pnlPct = currentPaperState.avg_price > 0 
@@ -63,7 +63,8 @@ async function runCycle() {
 
     // Trigger AI Advisor only on potential shifts
     const rsiTrigger = signals && (signals.rsi < 30 || signals.rsi > 75)
-    const trendTrigger = (greenCount >= 6 && currentPaperState.holdings === 0) || (redCount >= 6 && currentPaperState.holdings > 0)
+    // 12/20 = 60%, same as 6/10
+    const trendTrigger = (greenCount >= 12 && currentPaperState.holdings === 0) || (redCount >= 12 && currentPaperState.holdings > 0)
     const profitTrigger = pnlPct >= 0.015 || pnlPct <= -0.0075
 
     let decision: any
@@ -140,7 +141,7 @@ async function runCycle() {
       reason: decision.reason,
       confidence: decision.confidence || 0,
       executed,
-      krakenResponse, // Ensure this is always sent (even if null)
+      krakenResponse, // Always pass (even if null)
       pnlSnapshot: portfolioStatus.unrealized_pnl,
       totalEquity: portfolioStatus.current_value,
       intentTx,
@@ -158,17 +159,15 @@ async function runCycle() {
  * Startup sequence.
  */
 async function main() {
-  console.log("--- Starting Hybrid Gated InnovAgent ---")
+  console.log("--- Starting Hybrid Gated InnovAgent (V2) ---")
   const agentId = await registerAgent()
   if (agentId) await claimAllocation(agentId)
 
-  // Web server for health checks
   http.createServer((req, res) => {
     res.writeHead(200, { 'Content-Type': 'text/plain' })
     res.end('InnovAgent is healthy and running.\n')
   }).listen(process.env.PORT || 8080)
 
-  // Start the 10-minute loop
   const interval = parseInt(process.env.LOOP_INTERVAL_MS || "600000")
   runCycle().catch(err => console.error(err))
   setInterval(() => {
