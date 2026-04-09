@@ -30,10 +30,10 @@ export default function DashboardPage() {
   const unrealizedPnL = latestTrade?.pnlSnapshot || 0;
   
   // Starting balance matching the 100k ERC-8004 HackathonVault allocation
-  const startingBalance = 99999.56;
-  const totalEquity = latestTrade?.totalEquity || (startingBalance + unrealizedPnL);
+  const startingBalance = 100000;
+  const totalEquity = latestTrade?.totalEquity || (100000 + unrealizedPnL);
   
-  // Display PnL is calculated relative to our new baseline
+  // Display PnL is absolute relative to the $100k start
   const displayPnL = totalEquity - startingBalance;
   
   const winCount = trades ? trades.filter((t: any) => t.pnlSnapshot > 0).length : 0;
