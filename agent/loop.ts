@@ -208,7 +208,7 @@ async function runCycle() {
        postReputation(agentId, decision.confidence, {
          action: decision.action,
          pnlSnapshot: portfolioStatus.unrealized_pnl,
-         executed: !!intent
+         executed: decision.action !== "hold" 
        }).catch(e => {
          // Silencing known registry warnings
          if (!e.message?.includes("self-rate") && !e.message?.includes("already rated")) {
