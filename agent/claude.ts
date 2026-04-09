@@ -61,8 +61,17 @@ export async function makeDecision(marketData: MarketData) {
     if (!content) throw new Error("Empty response from AI")
     
     return JSON.parse(content)
-  } catch (error) {
-    console.error("AI Decision Error:", error)
+  } catch (error: any) {
+    if (error.message?.includes("Organization has been restricted")) {
+      console.warn("CRITICAL: Groq API account is restricted. Please check billing/usage at console.groq.com")
+      return { 
+        action: "hold", 
+        volume: 0, 
+        reason: "HOLD (Groq API Restricted - check billing)", 
+        confidence: 0 
+      }
+    }
+    console.error("AI Decision Error:", error.message || error)
     return { action: "hold", volume: 0, reason: "ai error", confidence: 0 }
   }
 }

@@ -151,15 +151,15 @@ export default function DashboardPage() {
         <div className="bg-[#131314] rounded-2xl p-6 border border-[#262627] relative overflow-hidden group">
           <p className="text-[#adaaab] text-[10px] uppercase tracking-[0.2em] font-bold mb-3">Daily Risk Guardrail</p>
           <div className="flex justify-between items-end mb-2">
-            <h2 className={`text-3xl font-black font-[family-name:var(--font-space-grotesk)] ${todayLosses > 400 ? "text-[#ff7351]" : "text-white"}`}>
+            <h2 className={`text-3xl font-black font-[family-name:var(--font-space-grotesk)] ${todayLosses > 1900 ? "text-[#ff7351]" : "text-white"}`}>
               ${todayLosses.toFixed(2)}
             </h2>
-            <span className="text-[#565556] text-[10px] font-bold mb-1">/ $500.00</span>
+            <span className="text-[#565556] text-[10px] font-bold mb-1">/ $2,000.00</span>
           </div>
           <div className="w-full h-1.5 bg-[#1a191b] rounded-full overflow-hidden border border-white/5">
             <div 
-              className={`h-full transition-all duration-1000 ${todayLosses > 400 ? "bg-[#ff7351]" : "bg-[#00fc40]"}`}
-              style={{ width: `${Math.min((todayLosses / 500) * 100, 100)}%` }}
+              className={`h-full transition-all duration-1000 ${todayLosses > 1900 ? "bg-[#ff7351]" : "bg-[#00fc40]"}`}
+              style={{ width: `${Math.min((todayLosses / 2000) * 100, 100)}%` }}
             />
           </div>
         </div>

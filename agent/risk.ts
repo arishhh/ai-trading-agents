@@ -36,17 +36,19 @@ export async function checkRisk(volume: number, price: number) {
   }
 
   try {
-    // 2. Daily Loss Limit ($500)
+    // 2. Daily Loss Limit ($2,000)
     // Calculate daily loss based on the start of the UTC day (midnight)
     const midnight = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate())).getTime()
     const recentTrades: any[] = await client.query("decisions:getRecentByTime" as any, { since: midnight })
     
     let dailyPnL = 0
     if (recentTrades.length > 0) {
-      // decisions:getRecentByTime returns DESC (latest first)
-      const currentPnL = recentTrades[0].pnlSnapshot
-      const startPnL = recentTrades[recentTrades.length - 1].pnlSnapshot
-      dailyPnL = currentPnL - startPnL
+      // Find the first trade of the day to get the starting equity
+      const currentEquity = recentTrades[0].totalEquity || (100000 + recentTrades[0].pnlSnapshot)
+      const startingTrade = recentTrades[recentTrades.length - 1]
+      const startingEquity = startingTrade.totalEquity || (100000 + startingTrade.pnlSnapshot)
+      
+      dailyPnL = currentEquity - startingEquity
       
       // Update todayLosses in state table for dashboard/tracking
       await client.mutation("state:upsertValue" as any, { 
