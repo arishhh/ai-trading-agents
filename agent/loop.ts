@@ -173,13 +173,15 @@ async function runCycle() {
 
     console.log(`[${timeStr}] ${decision.action.toUpperCase()} | Price: $${currentPrice.toFixed(2)} | PnL: $${portfolioStatus.unrealized_pnl.toFixed(2)} | Confidence: ${(decision.confidence * 100).toFixed(0)}%`)
 
-    // 7. ERC-8004 Validation Checkpoint (Background - Don't wait)
+    // 7. ERC-8004 Validation (The signatures in insertDecision handle this!)
+    /* 
     if (agentId) {
        console.log(`[${timeStr}] Initiating background Validation Checkpoint...`)
        postCheckpoint(agentId, decision, decision.confidence, portfolioStatus.unrealized_pnl).catch(e => {
          console.warn(`[ERC-8004] Background Checkpoint failed: ${e.message}`)
        })
     }
+    */
 
   } catch (error: any) {
     console.error(`[${timeStr}] CYCLE ERROR:`, error)
