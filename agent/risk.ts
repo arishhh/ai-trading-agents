@@ -41,8 +41,11 @@ export async function checkRisk(volume: number, price: number) {
     const midnight = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate())).getTime()
     const recentTrades: any[] = await client.query("decisions:getRecentByTime" as any, { since: midnight })
     
+    // Check for Manual Force Reset
+    const forceReset: any = await client.query("state:getValue" as any, { key: "force_reset_today" })
+    
     let dailyPnL = 0
-    if (recentTrades.length > 0) {
+    if (recentTrades.length > 0 && (!forceReset || !forceReset.value)) {
       // Find the first trade of the day to get the starting equity
       const currentEquity = recentTrades[0].totalEquity || (100000 + recentTrades[0].pnlSnapshot)
       const startingTrade = recentTrades[recentTrades.length - 1]
