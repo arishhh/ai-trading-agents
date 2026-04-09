@@ -11,7 +11,7 @@ export const insertDecision = mutation({
     reason: v.string(),
     confidence: v.number(),
     executed: v.boolean(),
-    krakenResponse: v.any(),
+    krakenResponse: v.optional(v.any()),
     pnlSnapshot: v.number(),
     totalEquity: v.optional(v.number()),
     eip712Signature: v.optional(v.string()),
