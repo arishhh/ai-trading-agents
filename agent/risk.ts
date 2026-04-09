@@ -56,18 +56,19 @@ export async function checkRisk(volume: number, price: number) {
         console.log("[Risk] Ghost loss detected (calculation anomaly). Resetting to $0.00.")
         dailyPnL = 0
       }
-      
-      // Update todayLosses in state table for dashboard/tracking
-      await client.mutation("state:upsertValue" as any, { 
-        key: "todayLosses", 
-        value: dailyPnL < 0 ? Math.abs(dailyPnL) : 0 
-      })
+    }
 
-      if (dailyPnL <= -2000) {
-        return {
-          allowed: false,
-          reason: `Daily loss $${Math.abs(dailyPnL).toFixed(2)} exceeds $2,000 limit.`
-        }
+    // ALWAYS update todayLosses in state table for dashboard/tracking
+    // This ensures that even with 0 trades, we clear stale ghost values.
+    await client.mutation("state:upsertValue" as any, { 
+      key: "todayLosses", 
+      value: dailyPnL < 0 ? Math.abs(dailyPnL) : 0 
+    })
+
+    if (dailyPnL <= -2000) {
+      return {
+        allowed: false,
+        reason: `Daily loss $${Math.abs(dailyPnL).toFixed(2)} exceeds $2,000 limit.`
       }
     }
 
