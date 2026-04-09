@@ -3,7 +3,7 @@ import * as kraken from "./kraken"
 import * as claude from "./claude"
 import * as prism from "./prism"
 import { checkRisk } from "./risk"
-import { registerAgent, claimAllocation, submitTradeIntent, postCheckpoint, getAgentAddress, getWalletBalance } from "./erc8004"
+import { registerAgent, claimAllocation, submitTradeIntent, postCheckpoint, postReputation, getAgentAddress, getWalletBalance } from "./erc8004"
 import dotenv from "dotenv"
 import http from "http"
 
@@ -106,12 +106,15 @@ async function runCycle() {
       decision.volume = 20000 / currentPrice
     }
 
+    let intentSig: string | undefined
     const agentIdState = await client.query("state:getValue" as any, { key: "erc8004AgentId" })
     const agentId = agentIdState?.value
     
     if (agentId && (decision.action === "buy" || decision.action === "sell")) {
       console.log(`[${timeStr}] Submitting Trade Intent to RiskRouter...`)
-      intentTx = await submitTradeIntent(agentId, decision.action, "XBTUSD", decision.volume || 0, currentPrice) || undefined
+      const intent = await submitTradeIntent(agentId, decision.action, "XBTUSD", decision.volume || 0, currentPrice)
+      intentTx = intent?.hash
+      intentSig = intent?.signature
     }
 
     if (decision.action === "buy" || decision.action === "sell") {
@@ -129,6 +132,15 @@ async function runCycle() {
           executed = true
           // Save new state to Cloud
           await client.mutation("state:upsertValue" as any, { key: "paperTradingState", value: currentPaperState })
+          
+          // Boost reputation after execution
+          if (agentId) {
+            await postReputation(agentId, decision.confidence, { 
+              action: decision.action, 
+              pnlSnapshot: portfolioStatus.unrealized_pnl,
+              executed: true 
+            })
+          }
         } else {
           decision.action = "hold"
           decision.reason = `execution failed: ${result?.error || 'unknown error'}`
@@ -140,8 +152,8 @@ async function runCycle() {
     }
 
     // 6. Log Cycle and update dashboard
-    const balance = await getWalletBalance()
-    await client.mutation("state:upsertValue" as any, { key: "walletBalance", value: balance })
+    const walletBalance = await getWalletBalance()
+    await client.mutation("state:upsertValue" as any, { key: "walletBalance", value: walletBalance })
 
     await client.mutation("decisions:insertDecision" as any, {
       timestamp,
@@ -151,12 +163,19 @@ async function runCycle() {
       reason: decision.reason,
       confidence: decision.confidence || 0,
       executed,
-      krakenResponse, // Always pass (even if null)
+      krakenResponse,
       pnlSnapshot: portfolioStatus.unrealized_pnl,
       totalEquity: portfolioStatus.current_value,
       intentTx,
+      eip712Signature: intentSig,
       source: `InnovAgent-Cloud${isGated ? '-Gated' : ''}`
     })
+
+    // 7. ERC-8004 Validation Checkpoint (The Attendance Taker)
+    if (agentId) {
+       console.log(`[${timeStr}] Posting Validation Checkpoint to Sepolia...`)
+       await postCheckpoint(agentId, decision, decision.confidence, portfolioStatus.unrealized_pnl)
+    }
 
     console.log(`[${timeStr}] ${decision.action.toUpperCase()} | Price: $${currentPrice.toFixed(2)} | PnL: $${portfolioStatus.unrealized_pnl.toFixed(2)} | Confidence: ${(decision.confidence * 100).toFixed(0)}%`)
 

@@ -226,7 +226,7 @@ export async function submitTradeIntent(
   pair: string,
   volume: number,
   price: number
-): Promise<string | null> {
+): Promise<{ hash: string, signature: string } | null> {
   const signer = getSigner()
   if (!signer || !agentId) return null
 
@@ -250,7 +250,7 @@ export async function submitTradeIntent(
     const signature = await signer.signTypedData(DOMAIN, TRADE_INTENT_TYPES, intent)
     const tx = await router.submitTradeIntent(intent, signature)
     console.log(`ERC-8004: Trade Intent Submitted: ${tx.hash}`)
-    return tx.hash
+    return { hash: tx.hash, signature }
   } catch (e) {
     console.error("ERC-8004: Trade intent submission failed:", e)
     return null
