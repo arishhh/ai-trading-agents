@@ -217,8 +217,8 @@ async function main() {
   await client.mutation("state:upsertValue" as any, { key: "paperTradingState", value: resetConfig })
   console.log("[Lifecycle] State hard-reset to $100,000 to clear rejected $20k trades.")
 
-  const interval = parseInt(process.env.LOOP_INTERVAL_MS || "300000")
-  console.log(`[Lifecycle] Starting 5-minute cycle loop (Interval: ${interval}ms)`)
+  const interval = parseInt(process.env.LOOP_INTERVAL_MS || "360000")
+  console.log(`[Lifecycle] Starting 6-minute cycle loop (Interval: ${interval}ms)`)
   
   runCycle().catch(err => console.error("[Cycle Error]", err))
   setInterval(() => {
