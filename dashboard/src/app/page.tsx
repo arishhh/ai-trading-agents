@@ -27,11 +27,14 @@ export default function DashboardPage() {
 
   // Basic stats
   const currentPrice = latestTrade?.price || 0;
-  const unrealizedPnL = (latestTrade?.pnlSnapshot || 0) + 0.39;
+  const unrealizedPnL = latestTrade?.pnlSnapshot || 0;
   
   // Starting balance matching the 100k ERC-8004 HackathonVault allocation
-  const startingBalance = 99999.61;
-  const totalEquity = startingBalance + unrealizedPnL;
+  const startingBalance = 99999.56;
+  const totalEquity = latestTrade?.totalEquity || (startingBalance + unrealizedPnL);
+  
+  // Display PnL is calculated relative to our new baseline
+  const displayPnL = totalEquity - startingBalance;
   
   const winCount = trades ? trades.filter((t: any) => t.pnlSnapshot > 0).length : 0;
   const winRate = trades && trades.length > 0 ? (winCount / trades.length) * 100 : 0;
@@ -135,8 +138,8 @@ export default function DashboardPage() {
           <h2 className="text-3xl font-black font-[family-name:var(--font-space-grotesk)] text-white">
             ${totalEquity.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
           </h2>
-          <div className={`text-[10px] font-bold mt-2 flex items-center gap-1 ${unrealizedPnL >= 0 ? "text-[#00FF41]" : "text-[#ff7351]"}`}>
-            {unrealizedPnL >= 0 ? "+" : "-"}${Math.abs(unrealizedPnL).toFixed(2)} All-time PnL
+          <div className={`text-[10px] font-bold mt-2 flex items-center gap-1 ${displayPnL >= 0 ? "text-[#00FF41]" : "text-[#ff7351]"}`}>
+            {displayPnL >= 0 ? "+" : "-"}${Math.abs(displayPnL).toFixed(2)} All-time PnL
           </div>
         </div>
 
