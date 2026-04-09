@@ -75,9 +75,11 @@ async function runCycle() {
           await client.mutation("state:upsertValue" as any, { key: "paperTradingState", value: result.state })
           await client.mutation("state:upsertValue" as any, { key: "positionEntryTime", value: null })
           
+          let intentSig: string | undefined
           // On-chain Intent
           if (agentId) {
-            await submitTradeIntent(agentId, "sell", "XBTUSD", volume, currentPrice).catch(() => {})
+            const intent = await submitTradeIntent(agentId, "sell", "XBTUSD", volume, currentPrice).catch(() => {})
+            intentSig = (intent as any)?.signature
             postReputation(agentId, 1.0, { action: "sell", pnlSnapshot: (pnlPct * 100), executed: true }).catch(() => {})
           }
 
@@ -92,6 +94,7 @@ async function runCycle() {
             executed: true,
             pnlSnapshot: (pnlPct * 100),
             totalEquity: result.state.balance + (result.state.holdings * currentPrice),
+            eip712Signature: intentSig,
             source: "InnovAgent-Production-Exit"
           })
 
@@ -102,6 +105,14 @@ async function runCycle() {
       } else {
         // No exit triggered: Log monitoring and END cycle
         const monitorReason = "monitoring_position"
+        const agentIdState = await client.query("state:getValue" as any, { key: "erc8004AgentId" })
+        const agentId = agentIdState?.value
+        let heartbeatSig: string | undefined
+        
+        if (agentId) {
+          heartbeatSig = await signHeartbeat(agentId, "hold", monitorReason, timestamp).catch(() => undefined) || undefined
+        }
+
         await client.mutation("decisions:insertDecision" as any, {
           timestamp,
           action: "hold",
@@ -112,6 +123,7 @@ async function runCycle() {
           executed: false,
           pnlSnapshot: (pnlPct * 100),
           totalEquity: currentPaperState.balance + (currentPaperState.holdings * currentPrice),
+          eip712Signature: heartbeatSig,
           source: "InnovAgent-Monitoring"
         })
         console.log(`[${timeStr}] Monitoring: PnL ${(pnlPct * 100).toFixed(2)}% | Reason: ${monitorReason}`)
@@ -188,16 +200,26 @@ async function runCycle() {
         }
       } else {
         // AI said hold despite indicators/timer
+        const agentIdState = await client.query("state:getValue" as any, { key: "erc8004AgentId" })
+        const agentId = agentIdState?.value
+        let heartbeatSig: string | undefined
+        const reason = neuralSyncTrigger ? "neural_sync_trigger" : "indicators_met_ai_hold"
+        
+        if (agentId) {
+          heartbeatSig = await signHeartbeat(agentId, "hold", reason, timestamp).catch(() => undefined) || undefined
+        }
+
         await client.mutation("decisions:insertDecision" as any, {
           timestamp,
           action: "hold",
           volume: 0,
           price: currentPrice,
-          reason: neuralSyncTrigger ? "neural_sync_trigger" : "indicators_met_ai_hold",
+          reason: reason,
           confidence: decision.confidence,
           executed: false,
           pnlSnapshot: 0,
           totalEquity: currentPaperState.balance,
+          eip712Signature: heartbeatSig,
           source: "InnovAgent-Hold-Analysis"
         })
         console.log(`[${timeStr}] AI HOLD | Reason: ${neuralSyncTrigger ? 'Neural Sync Refused' : 'Indicator Refused'}`)
@@ -210,9 +232,26 @@ async function runCycle() {
        // Heartbeat signature for Pulse Monitor
        const agentIdState = await client.query("state:getValue" as any, { key: "erc8004AgentId" })
        const agentId = agentIdState?.value
+       let heartbeatSig: string | undefined
+       
        if (agentId) {
-         await signHeartbeat(agentId, "hold", "standby", timestamp).catch(() => {})
+         heartbeatSig = await signHeartbeat(agentId, "hold", "standby", timestamp).catch(() => undefined) || undefined
        }
+
+       await client.mutation("decisions:insertDecision" as any, {
+         timestamp,
+         action: "hold",
+         volume: 0,
+         price: currentPrice,
+         reason: "standby",
+         confidence: 0.5,
+         executed: false,
+         pnlSnapshot: 0,
+         totalEquity: currentPaperState.balance,
+         eip712Signature: heartbeatSig,
+         source: "InnovAgent-Standby"
+       })
+       console.log(`[${timeStr}] Standby: Monitoring metrics...`)
     }
 
   } catch (error: any) {
