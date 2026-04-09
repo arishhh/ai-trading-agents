@@ -4,6 +4,8 @@ import { useQuery, useMutation } from "convex/react";
 import { Play, Pause, Activity, TrendingUp, TrendingDown, Clock, ShieldAlert, Wallet, ShieldCheck } from "lucide-react";
 import { useEffect, useState } from "react";
 import KrakenChart from "@/components/KrakenChart";
+import PerformanceStats from "@/components/PerformanceStats";
+import EquityChart from "@/components/EquityChart";
 
 export default function DashboardPage() {
   const [mounted, setMounted] = useState(false);
@@ -129,72 +131,29 @@ export default function DashboardPage() {
         </button>
       </div>
 
-      {/* Top Metrics Panel */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
-        <div className="bg-[#131314] rounded-2xl p-6 border border-[#262627] relative overflow-hidden group">
-          <div className="absolute top-0 right-0 p-3 opacity-10 group-hover:opacity-20 transition-opacity">
-            <Wallet size={48} />
-          </div>
-          <p className="text-[#adaaab] text-[10px] uppercase tracking-[0.2em] font-bold mb-3">Total Account Equity</p>
-          <h2 className="text-3xl font-black font-[family-name:var(--font-space-grotesk)] text-white">
-            ${totalEquity.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-          </h2>
-          <div className={`text-[10px] font-bold mt-2 flex items-center gap-1 ${displayPnL >= 0 ? "text-[#00FF41]" : "text-[#ff7351]"}`}>
-            {displayPnL >= 0 ? "+" : "-"}${Math.abs(displayPnL).toFixed(2)} All-time PnL
-          </div>
-        </div>
-
-        <div className="bg-[#131314] rounded-2xl p-6 border border-[#262627] relative overflow-hidden group">
-          <p className="text-[#adaaab] text-[10px] uppercase tracking-[0.2em] font-bold mb-3">Market Price (Kraken)</p>
-          <h2 className="text-3xl font-black font-[family-name:var(--font-space-grotesk)] text-white">
-            ${currentPrice > 0 ? currentPrice.toLocaleString() : "---"}
-          </h2>
-          <div className="text-[10px] text-[#adaaab] font-bold mt-2 uppercase tracking-tighter">BTC / USD Spot Feed</div>
-        </div>
-
-        <div className="bg-[#131314] rounded-2xl p-6 border border-[#262627] relative overflow-hidden group">
-          <p className="text-[#adaaab] text-[10px] uppercase tracking-[0.2em] font-bold mb-3">Daily Risk Guardrail</p>
-          <div className="flex justify-between items-end mb-2">
-            <h2 className={`text-3xl font-black font-[family-name:var(--font-space-grotesk)] ${todayLosses > 1900 ? "text-[#ff7351]" : "text-white"}`}>
-              ${todayLosses.toFixed(2)}
-            </h2>
-            <span className="text-[#565556] text-[10px] font-bold mb-1">/ $2,000.00</span>
-          </div>
-          <div className="w-full h-1.5 bg-[#1a191b] rounded-full overflow-hidden border border-white/5">
-            <div 
-              className={`h-full transition-all duration-1000 ${todayLosses > 1900 ? "bg-[#ff7351]" : "bg-[#00fc40]"}`}
-              style={{ width: `${Math.min((todayLosses / 2000) * 100, 100)}%` }}
-            />
-          </div>
-        </div>
-
-        <div className="bg-[#131314] rounded-2xl p-6 border border-[#262627] relative overflow-hidden group">
-          <p className="text-[#adaaab] text-[10px] uppercase tracking-[0.2em] font-bold mb-3">Agent Efficiency</p>
-          <h2 className="text-3xl font-black font-[family-name:var(--font-space-grotesk)] text-white">
-            {winRate.toFixed(1)}%
-          </h2>
-          <div className="text-[10px] text-[#adaaab] font-bold mt-2 uppercase tracking-tighter">Win Rate (Last 30 Trades)</div>
-        </div>
+      {/* Top Performance Analytics Panel */}
+      <div className="mb-8">
+        <PerformanceStats />
       </div>
 
-      {/* Market Chart Section */}
-      <div className="mb-10 rounded-2xl overflow-hidden border border-[#262627] bg-[#131314] p-1">
-        <div className="p-4 border-b border-[#262627] flex items-center justify-between">
-            <h3 className="text-xs uppercase tracking-widest font-bold text-[#adaaab] flex items-center gap-2">
-                <TrendingUp size={14} className="text-[#00fc40]" /> Kraken Real-time Liquidity
-            </h3>
-            <div className="flex items-center gap-4">
-              <span className="text-[10px] font-bold text-[#00fc40] bg-[#00fc40]/10 px-2 py-0.5 rounded border border-[#00fc40]/20 animate-pulse">LIVE FEED</span>
-              <button 
-                onClick={() => setShowChart(!showChart)}
-                className="text-[10px] font-black uppercase tracking-widest text-[#adaaab] hover:text-white transition-colors border border-[#262627] px-3 py-1 rounded-lg hover:bg-white/5"
-              >
-                {showChart ? "Collapse Chart" : "Expand Chart"}
-              </button>
-            </div>
+      {/* Visual Intelligence: Market & Equity */}
+      <div className="grid grid-cols-1 xl:grid-cols-2 gap-8 mb-10">
+        <div className="rounded-2xl overflow-hidden border border-[#262627] bg-[#131314] p-1 h-fit">
+          <div className="p-4 border-b border-[#262627] flex items-center justify-between">
+              <h3 className="text-xs uppercase tracking-widest font-bold text-[#adaaab] flex items-center gap-2">
+                  <TrendingUp size={14} className="text-[#00fc40]" /> Kraken Real-time Liquidity
+              </h3>
+              <div className="flex items-center gap-4">
+                <span className="text-[10px] font-bold text-[#00fc40] bg-[#00fc40]/10 px-2 py-0.5 rounded border border-[#00fc40]/20 animate-pulse">LIVE FEED</span>
+              </div>
+          </div>
+          <div className="h-[400px]">
+            <KrakenChart />
+          </div>
         </div>
-        <div className={showChart ? "block h-[450px]" : "hidden"}>
-          <KrakenChart />
+
+        <div className="h-[455px]">
+          <EquityChart />
         </div>
       </div>
 

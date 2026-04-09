@@ -62,8 +62,8 @@ export const getEquityHistory = query({
   handler: async (ctx): Promise<{ timestamp: number; totalEquity: number }[]> => {
     const decisions = await ctx.db
       .query("decisions")
-      .order("desc")
-      .take(100)
+      .order("asc") // Changed to asc for chronological charting
+      .take(1000)
     
     return decisions
       .filter((d) => d.totalEquity !== undefined)
@@ -72,4 +72,48 @@ export const getEquityHistory = query({
         totalEquity: d.totalEquity as number,
       }))
   },
+})
+
+export const getPerformanceStats = query({
+  handler: async (ctx) => {
+    const allDecisions = await ctx.db
+      .query("decisions")
+      .order("desc")
+      .take(500)
+
+    const trades = allDecisions.filter(d => d.executed)
+    const count = trades.length
+    
+    // Win Rate calculation based on pnlSnapshot (positive being a win)
+    const wins = trades.filter(d => d.pnlSnapshot > 0).length
+    const winRate = count > 0 ? (wins / count) * 100 : 0
+
+    // Latest equity vs Initial $100,000
+    const latest = allDecisions[0]?.totalEquity || 100000
+    const initial = 100000
+    const totalPnl = latest - initial
+    const totalPnlPct = ((latest - initial) / initial) * 100
+
+    // Max Drawdown calculation
+    let maxEquity = 100000
+    let maxDd = 0
+    const chronological = [...allDecisions].reverse()
+    
+    for (const d of chronological) {
+      if (d.totalEquity) {
+        if (d.totalEquity > maxEquity) maxEquity = d.totalEquity
+        const dd = (maxEquity - d.totalEquity) / maxEquity
+        if (dd > maxDd) maxDd = dd
+      }
+    }
+
+    return {
+      count,
+      winRate,
+      totalPnl,
+      totalPnlPct,
+      maxDrawdown: maxDd * 100,
+      currentEquity: latest
+    }
+  }
 })
