@@ -64,11 +64,12 @@ async function runCycle() {
       ? (currentPrice - currentPaperState.avg_price) / currentPaperState.avg_price 
       : 0
 
-    // Trigger AI Advisor only on potential shifts
-    const rsiTrigger = signals && (signals.rsi < 30 || signals.rsi > 75)
-    // 12/20 = 60%, same as 6/10
-    const trendTrigger = (greenCount >= 12 && currentPaperState.holdings === 0) || (redCount >= 12 && currentPaperState.holdings > 0)
-    const profitTrigger = pnlPct >= 0.025 || pnlPct <= -0.015
+    // Trigger AI Advisor more easily for the hackathon final stretch
+    // RSI: 40/65 allows for much more frequent AI evaluations
+    const rsiTrigger = signals && (signals.rsi < 40 || signals.rsi > 65)
+    // 10/20 = 50% trend shift (relaxed from 60%)
+    const trendTrigger = (greenCount >= 10 && currentPaperState.holdings === 0) || (redCount >= 10 && currentPaperState.holdings > 0)
+    const profitTrigger = pnlPct >= 0.01 || pnlPct <= -0.01 // Lowered profit/loss triggers from 2.5% to 1%
 
     let decision: any
     let isGated = false
@@ -198,20 +199,33 @@ async function runCycle() {
  * Startup sequence.
  */
 async function main() {
-  console.log("--- Starting Hybrid Gated InnovAgent (V2) ---")
-  const agentId = await registerAgent()
-  if (agentId) await claimAllocation(agentId)
+  console.log("--- ACTIVATE: Hackathon Boost Mode (V3) ---")
+  
+  // 1. Start Heartbeat Loop immediately (Crash-Proof)
+  const interval = parseInt(process.env.LOOP_INTERVAL_MS || "300000")
+  console.log(`[Lifecycle] Starting 5-minute cycle loop (Interval: ${interval}ms)`)
+  
+  runCycle().catch(err => console.error("[Cycle Error]", err))
+  setInterval(() => {
+    runCycle().catch(err => console.error("[Cycle Error]", err))
+  }, interval)
 
+  // 2. Start Health Check Server
   http.createServer((req, res) => {
     res.writeHead(200, { 'Content-Type': 'text/plain' })
-    res.end('InnovAgent is healthy and running.\n')
+    res.end('InnovAgent is healthy and running in Boost Mode.\n')
   }).listen(process.env.PORT || 8080)
 
-  const interval = parseInt(process.env.LOOP_INTERVAL_MS || "600000")
-  runCycle().catch(err => console.error(err))
-  setInterval(() => {
-    runCycle().catch(err => console.error(err))
-  }, interval)
+  // 3. Perform background registration/allocation
+  try {
+    const agentId = await registerAgent()
+    if (agentId) {
+      console.log(`[Registration] Agent verified/registered: ${agentId}`)
+      await claimAllocation(agentId)
+    }
+  } catch (err) {
+    console.warn(`[Registration] Initial registration failed, will retry in background:`, err)
+  }
 }
 
 main()

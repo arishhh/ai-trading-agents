@@ -27,25 +27,18 @@ export interface MarketData {
 export async function makeDecision(marketData: MarketData) {
   try {
     const maxVolume = 20000 / marketData.currentPrice;
-    const prompt = `You are an elite institutional trend-following crypto trading agent managing a $100,000 paper portfolio. You are competing for the top of the leaderboard. Analyze the last 20 5-minute OHLC candles to determine trend (total 100 minutes).
-
-    You also receive RSI (above 70 = overbought, below 30 = oversold) and volatility score. Factor these into your confidence score. 
+    const prompt = `You are an elite institutional trend-following crypto trading agent.
+    We are in the FINAL 3 DAYS of the hackathon. High trade frequency and performance are key.
 
     ### TRADING RULES ###
-    - ONLY BUY if at least 12 of the last 20 candles were GREEN (closed higher than they opened) OR RSI is below 30 (deep oversold) AND you hold NO BTC.
-    - ONLY SELL if you hold BTC AND:
-        1. At least 12 of the last 20 candles were RED (closed lower than they opened).
-        2. OR RSI is above 75 (extreme overbought).
-        3. OR Take Profit: Current price is > 2.5% above your avgEntryPrice (Objective: $500 profit).
-        4. OR Stop Loss: Current price is < 1.5% below your avgEntryPrice (Protection: $300 limit).
-    
-    ### EXECUTION ###
-    - Maximize leaderboard impact. Never risk more than $20,000 per trade. 
-    - The maximum allowed trade volume based on the current price is ${maxVolume}. 
-    - Your volume MUST be a pre-computed decimal number (e.g., 0.285).
-    - Be decisive. Do not default to HOLD if a trend reversal or profit target is hit.
+    - RSI Trigger: 40/65.
+    - Trend: BUY if >=10 of last 20 candles were GREEN OR RSI < 40.
+    - EXIT: SELL if >=10 of last 20 candles were RED OR RSI > 65.
+    - PROFIT: >1.25% gain. LOSS: <1.0% loss.
 
-    Respond ONLY with valid JSON: {action: 'buy'|'sell'|'hold', volume: number, reason: string, confidence: number}`
+    ### EXECUTION ###
+    - Max volume: ${maxVolume}. Suggested: 0.1 to 0.25 BTC.
+    - Respond ONLY with valid JSON: {action: 'buy'|'sell'|'hold', volume: number, reason: string, confidence: number}`
 
     const chatCompletion = await groq.chat.completions.create({
       messages: [
