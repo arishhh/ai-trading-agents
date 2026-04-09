@@ -42,8 +42,8 @@ export default function DashboardPage() {
   const winCount = trades ? trades.filter((t: any) => t.pnlSnapshot > 0).length : 0;
   const winRate = trades && trades.length > 0 ? (winCount / trades.length) * 100 : 0;
 
-  const [timeLeft, setTimeLeft] = useState<string>("10:00");
-  const intervalMs = 600000; // 10 minutes matches .env
+  const [timeLeft, setTimeLeft] = useState<string>("05:00");
+  const intervalMs = 300000; // 5 minutes matches new .env
 
   useEffect(() => {
     if (!latestTrade) return;
@@ -305,7 +305,7 @@ export default function DashboardPage() {
                       {timeLeft}<span className="text-xs text-[#adaaab] ml-1">MIN</span>
                     </div>
                     <p className="text-[#adaaab] text-[11px] mt-2 italic">
-                        The agent evaluates global sentiment and order books every 600 seconds.
+                        The agent evaluates global sentiment and order books every 300 seconds.
                     </p>
                 </div>
 
