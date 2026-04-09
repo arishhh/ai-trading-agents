@@ -33,8 +33,9 @@ export default function DashboardPage() {
   const startingBalance = 100000;
   const totalEquity = latestTrade?.totalEquity || (100000 + unrealizedPnL);
   
-  // Display PnL is absolute relative to the $100k start
-  const displayPnL = totalEquity - startingBalance;
+  // Display PnL is absolute relative to the $100k start. 
+  // Force to exactly 0 in neutral state to avoid math ghosts.
+  const displayPnL = unrealizedPnL === 0 ? 0 : totalEquity - startingBalance;
   
   const winCount = trades ? trades.filter((t: any) => t.pnlSnapshot > 0).length : 0;
   const winRate = trades && trades.length > 0 ? (winCount / trades.length) * 100 : 0;
