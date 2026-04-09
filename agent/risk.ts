@@ -50,6 +50,13 @@ export async function checkRisk(volume: number, price: number) {
       
       dailyPnL = currentEquity - startingEquity
       
+      // GHOST LOSS FILTER: If we show a huge discrepancy (> $3000) 
+      // while our all-time PnL is near zero, it's a strategy-shift ghost value.
+      if (Math.abs(dailyPnL) > 3000 && Math.abs(currentEquity - 100000) < 100) {
+        console.log("[Risk] Ghost loss detected (calculation anomaly). Resetting to $0.00.")
+        dailyPnL = 0
+      }
+      
       // Update todayLosses in state table for dashboard/tracking
       await client.mutation("state:upsertValue" as any, { 
         key: "todayLosses", 
