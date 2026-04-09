@@ -3,7 +3,7 @@ import * as kraken from "./kraken"
 import * as claude from "./claude"
 import * as prism from "./prism"
 import { checkRisk } from "./risk"
-import { registerAgent, claimAllocation, submitTradeIntent, postCheckpoint, postReputation, getAgentAddress, getWalletBalance } from "./erc8004"
+import { registerAgent, claimAllocation, submitTradeIntent, postCheckpoint, postReputation, signHeartbeat, getAgentAddress, getWalletBalance } from "./erc8004"
 import dotenv from "dotenv"
 import http from "http"
 
@@ -115,6 +115,12 @@ async function runCycle() {
       const intent = await submitTradeIntent(agentId, decision.action, "XBTUSD", decision.volume || 0, currentPrice)
       intentTx = intent?.hash
       intentSig = intent?.signature
+    }
+
+    // Always Generate a Signature (Heartbeat for HOLD / Evidence for Trades)
+    if (agentId && !intentSig) {
+      console.log(`[${timeStr}] Generating cryptographic Heartbeat signature...`)
+      intentSig = await signHeartbeat(agentId, decision.action, decision.reason, timestamp) || undefined
     }
 
     if (decision.action === "buy" || decision.action === "sell") {

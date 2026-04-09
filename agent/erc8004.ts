@@ -38,6 +38,15 @@ const TRADE_INTENT_TYPES = {
   ],
 }
 
+const HEARTBEAT_TYPES = {
+  Heartbeat: [
+    { name: 'agentId',   type: 'uint256' },
+    { name: 'action',    type: 'string'  },
+    { name: 'reason',    type: 'string'  },
+    { name: 'timestamp', type: 'uint256' },
+  ],
+}
+
 // EIP-712 Domain for AgentRegistry (Checkpoints)
 const AGENT_REGISTRY_DOMAIN = {
   name: "AITradingAgent",
@@ -345,6 +354,33 @@ export async function postReputation(
       return "0x_ALREADY_RATED"
     }
     console.error("ERC-8004: Reputation feedback failed:", e.message || e)
+    return null
+  }
+}
+
+/**
+ * 6. Sign Heartbeat (Off-chain proof of life)
+ */
+export async function signHeartbeat(
+  agentId: string,
+  action: string,
+  reason: string,
+  timestamp: number
+): Promise<string | null> {
+  const signer = getSigner()
+  if (!signer || !agentId) return null
+
+  try {
+    const heartbeat = {
+      agentId: BigInt(agentId),
+      action: action.toUpperCase(),
+      reason: reason.slice(0, 200), // Cap length for signing
+      timestamp: BigInt(timestamp)
+    }
+
+    return await signer.signTypedData(DOMAIN, HEARTBEAT_TYPES, heartbeat)
+  } catch (e) {
+    console.error("ERC-8004: Heartbeat signing failed:", e)
     return null
   }
 }
