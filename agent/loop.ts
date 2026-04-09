@@ -3,7 +3,7 @@ import * as kraken from "./kraken"
 import * as claude from "./claude"
 import * as prism from "./prism"
 import { checkRisk } from "./risk"
-import { registerAgent, claimAllocation, submitTradeIntent, postCheckpoint, postReputation, signHeartbeat, getAgentAddress, getWalletBalance } from "./erc8004"
+import { registerAgent, claimAllocation, submitTradeIntent, postReputation, signHeartbeat, getAgentAddress, getWalletBalance } from "./erc8004"
 import dotenv from "dotenv"
 import http from "http"
 
@@ -30,179 +30,189 @@ async function runCycle() {
       return
     }
 
-    // 2. Cloud Persistence: Fetch Paper Trading State from Convex
-    let paperStateState = await client.query("state:getValue" as any, { key: "paperTradingState" })
-    // Maximize leaderboard impact: $20,000 per trade strategy. 
-    let currentPaperState: kraken.PaperState
+    // --- STEP 1: Get current BTC price ---
+    const { price: currentPrice } = await kraken.getTicker()
+    await client.mutation("state:upsertValue" as any, { key: "lastPrice", value: currentPrice })
+    
+    // --- STEP 2: Check cloud state ---
+    const paperStateState = await client.query("state:getValue" as any, { key: "paperTradingState" })
+    let currentPaperState: kraken.PaperState = paperStateState?.value || { balance: 100000, holdings: 0, total_trades: 0, avg_price: 0 }
+    
+    const posEntryTimeState = await client.query("state:getValue" as any, { key: "positionEntryTime" })
+    const entryTime = posEntryTimeState?.value
+    const isPositionOpen = currentPaperState.holdings > 0
 
-    if (!paperStateState?.value) {
-      console.log(`[${timeStr}] Initializing Cloud State with $100,000 baseline...`)
-      currentPaperState = {
-        balance: 100000,
-        holdings: 0,
-        total_trades: 0,
-        avg_price: 0
+    // --- STEP 3: If position IS open -> run exit checks ---
+    if (isPositionOpen) {
+      const pnlPct = (currentPrice - currentPaperState.avg_price) / currentPaperState.avg_price
+      const heldDurationMs = timestamp - (entryTime || timestamp)
+      
+      let exitTriggered = false
+      let exitReason = ""
+
+      if (pnlPct >= 0.005) {
+        exitTriggered = true
+        exitReason = "take_profit"
+      } else if (pnlPct <= -0.01) {
+        exitTriggered = true
+        exitReason = "stop_loss"
+      } else if (heldDurationMs >= 3600000) {
+        exitTriggered = true
+        exitReason = "time_exit_60min"
       }
-      await client.mutation("state:upsertValue" as any, { key: "paperTradingState", value: currentPaperState })
-    } else {
-      currentPaperState = paperStateState.value
+
+      if (exitTriggered) {
+        console.log(`[${timeStr}] EXIT TRIGGERED: ${exitReason} | PnL: ${(pnlPct * 100).toFixed(2)}%`)
+        
+        const volume = currentPaperState.holdings
+        const agentIdState = await client.query("state:getValue" as any, { key: "erc8004AgentId" })
+        const agentId = agentIdState?.value
+
+        // Execute Sell
+        const result = await kraken.paperSell(currentPaperState, volume)
+        if (result.success) {
+          // Clear position state
+          await client.mutation("state:upsertValue" as any, { key: "paperTradingState", value: result.state })
+          await client.mutation("state:upsertValue" as any, { key: "positionEntryTime", value: null })
+          
+          // On-chain Intent
+          if (agentId) {
+            await submitTradeIntent(agentId, "sell", "XBTUSD", volume, currentPrice).catch(() => {})
+            postReputation(agentId, 1.0, { action: "sell", pnlSnapshot: (pnlPct * 100), executed: true }).catch(() => {})
+          }
+
+          // Log to Convex
+          await client.mutation("decisions:insertDecision" as any, {
+            timestamp,
+            action: "sell",
+            volume,
+            price: currentPrice,
+            reason: exitReason,
+            confidence: 1.0,
+            executed: true,
+            pnlSnapshot: (pnlPct * 100),
+            totalEquity: result.state.balance + (result.state.holdings * currentPrice),
+            source: "InnovAgent-Production-Exit"
+          })
+
+          console.log(`[${timeStr}] SELL EXECUTED: ${exitReason} | 10s Cooldown starting...`)
+          await new Promise(resolve => setTimeout(resolve, 10000))
+          return
+        }
+      } else {
+        // No exit triggered: Log monitoring and END cycle
+        const monitorReason = "monitoring_position"
+        await client.mutation("decisions:insertDecision" as any, {
+          timestamp,
+          action: "hold",
+          volume: 0,
+          price: currentPrice,
+          reason: monitorReason,
+          confidence: 0.5,
+          executed: false,
+          pnlSnapshot: (pnlPct * 100),
+          totalEquity: currentPaperState.balance + (currentPaperState.holdings * currentPrice),
+          source: "InnovAgent-Monitoring"
+        })
+        console.log(`[${timeStr}] Monitoring: PnL ${(pnlPct * 100).toFixed(2)}% | Reason: ${monitorReason}`)
+        return
+      }
     }
 
-    // 3. Fetch Market Data
-    const { price: currentPrice } = await kraken.getTicker()
-    // Cache for fallback resilience
-    await client.mutation("state:upsertValue" as any, { key: "lastPrice", value: currentPrice })
+    // --- STEP 4: If position is NOT open -> check Entry Logic ---
+    const lastAIConsultState = await client.query("state:getValue" as any, { key: "lastAIConsultTime" })
+    const lastAIConsultTime = lastAIConsultState?.value || 0
+    const sinceLastAI = timestamp - lastAIConsultTime
+    
+    // Fetch market indicator data
     const candles = await kraken.getOHLC()
-    const portfolioStatus = await kraken.getPaperStatus(currentPaperState)
     const signals = await prism.getSignals()
-
-    // 4. PRE-AI FILTER (Gated Strategy to save Quota)
-    // Scaled for 20 5-minute candles (100 mins) to match previous logic
+    
+    // Neural Sync Check: Force AI consultation every 30 minutes
+    const neuralSyncTrigger = sinceLastAI >= 1800000
+    
+    // Normal Indicator Gate: RSI or 10/20 Trend shift
     const greenCount = candles.filter((c: any) => c.isGreen).length
-    const redCount = candles.length - greenCount
-    const pnlPct = currentPaperState.avg_price > 0 
-      ? (currentPrice - currentPaperState.avg_price) / currentPaperState.avg_price 
-      : 0
-
-    // Trigger AI Advisor more easily for the hackathon final stretch
-    // RSI: 40/65 allows for much more frequent AI evaluations
+    const trendTrigger = greenCount >= 10
     const rsiTrigger = signals && (signals.rsi < 40 || signals.rsi > 65)
-    // 10/20 = 50% trend shift (relaxed from 60%)
-    const trendTrigger = (greenCount >= 10 && currentPaperState.holdings === 0) || (redCount >= 10 && currentPaperState.holdings > 0)
-    // PROFIT TARGET: 1.25% or -1.0% stop-loss for high frequency
-    const profitTrigger = pnlPct >= 0.0125 || pnlPct <= -0.01 
 
-    let decision: any
-    let isGated = false
-    let executed = false
-    let krakenResponse: any = null
-    let intentTx: string | undefined = undefined
-
-    if (trendTrigger || rsiTrigger || profitTrigger) {
-      console.log(`[${timeStr}] Gating Triggered: ${trendTrigger ? 'Trend Shift' : rsiTrigger ? 'RSI Extreme' : 'PnL Limit'}. consulting AI...`)
+    if (neuralSyncTrigger || trendTrigger || rsiTrigger) {
+      const triggerType = neuralSyncTrigger ? "neural_sync_trigger" : "indicator_gate"
+      console.log(`[${timeStr}] Entry Logic Triggered: ${triggerType}. Consulting AI...`)
       
       const marketData: claude.MarketData = {
         currentPrice,
         candles,
-        portfolioValue: portfolioStatus.current_value,
-        unrealizedPnl: portfolioStatus.unrealized_pnl,
-        totalTrades: portfolioStatus.total_trades,
-        avgEntryPrice: currentPaperState.avg_price,
+        portfolioValue: currentPaperState.balance,
+        unrealizedPnl: 0,
+        totalTrades: currentPaperState.total_trades,
+        avgEntryPrice: 0,
         signals
       }
-      decision = await claude.makeDecision(marketData)
-    } else {
-      isGated = true
-      decision = {
-        action: 'hold',
-        volume: 0,
-        reason: `[Gated] Trend stable (G:${greenCount}/R:${redCount}), RSI:${signals?.rsi || 'N/A'}, PnL:${(pnlPct * 100).toFixed(2)}%`,
-        confidence: 0.5
-      }
-    }
+      
+      const decision = await claude.makeDecision(marketData)
+      await client.mutation("state:upsertValue" as any, { key: "lastAIConsultTime", value: timestamp })
 
-    // 5. Normalization & Execution - CRITICAL: $480 cap to pass $500 limit
-    if (typeof decision.volume === 'number') {
-      decision.volume = Math.min(decision.volume, 480 / currentPrice)
-    } else {
-      decision.volume = 480 / currentPrice
-    }
+      if (decision.action === "buy") {
+        const volume = 950 / currentPrice // Production $950 target
+        const risk = await checkRisk(volume, currentPrice)
+        
+        if (risk.allowed) {
+          const result = await kraken.paperBuy(currentPaperState, volume)
+          if (result.success) {
+            await client.mutation("state:upsertValue" as any, { key: "paperTradingState", value: result.state })
+            await client.mutation("state:upsertValue" as any, { key: "positionEntryTime", value: timestamp })
 
-    // STRICT GATING: One trade at a time for Leaderboard accuracy
-    if (decision.action === "buy" && currentPaperState.holdings > 0) {
-      console.log(`[${timeStr}] Skipping BUY: Already holding ${currentPaperState.holdings.toFixed(5)} BTC. Ensuring leaderboard sync.`)
-      decision.action = "hold"
-      decision.reason = "Position already open. Waiting for SELL trigger."
-    } else if (decision.action === "sell" && currentPaperState.holdings === 0) {
-      console.log(`[${timeStr}] Skipping SELL: No holdings detected.`)
-      decision.action = "hold"
-      decision.reason = "Nothing to sell. Waiting for BUY trigger."
-    }
+            const agentIdState = await client.query("state:getValue" as any, { key: "erc8004AgentId" })
+            const agentId = agentIdState?.value
+            
+            if (agentId) {
+              await submitTradeIntent(agentId, "buy", "XBTUSD", volume, currentPrice).catch(() => {})
+              postReputation(agentId, decision.confidence, { action: "buy", pnlSnapshot: 0, executed: true }).catch(() => {})
+            }
 
-    let intentSig: string | undefined
-    const agentIdState = await client.query("state:getValue" as any, { key: "erc8004AgentId" })
-    const agentId = agentIdState?.value
-    
-    if (agentId && (decision.action === "buy" || decision.action === "sell")) {
-      console.log(`[${timeStr}] Submitting Trade Intent to RiskRouter...`)
-      const intent = await submitTradeIntent(agentId, decision.action, "XBTUSD", decision.volume || 0, currentPrice)
-      intentTx = intent?.hash
-      intentSig = intent?.signature
-    }
-
-    // Always Generate a Signature (Heartbeat for HOLD / Evidence for Trades)
-    if (agentId && !intentSig) {
-      console.log(`[${timeStr}] Generating cryptographic Heartbeat signature...`)
-      intentSig = await signHeartbeat(agentId, decision.action, decision.reason, timestamp) || undefined
-    }
-
-    if (decision.action === "buy" || decision.action === "sell") {
-      const risk = await checkRisk(decision.volume, currentPrice)
-      if (risk.allowed) {
-        let result: any
-        if (decision.action === "buy") {
-          result = await kraken.paperBuy(currentPaperState, decision.volume)
-        } else if (decision.action === "sell") {
-          result = await kraken.paperSell(currentPaperState, decision.volume)
-        }
-
-        if (result?.success) {
-          currentPaperState = result.state
-          executed = true
-          // Save new state to Cloud
-          await client.mutation("state:upsertValue" as any, { key: "paperTradingState", value: currentPaperState })
-          
-          // Boost reputation after execution
-          if (agentId) {
-            postReputation(agentId, decision.confidence, { 
-              action: decision.action, 
-              pnlSnapshot: portfolioStatus.unrealized_pnl,
-              executed: true 
-            }).catch(e => console.warn(`[ERC-8004] Reputation Posting failed: ${e.message}`))
+            await client.mutation("decisions:insertDecision" as any, {
+              timestamp,
+              action: "buy",
+              volume,
+              price: currentPrice,
+              reason: neuralSyncTrigger ? "neural_sync_trigger" : decision.reason,
+              confidence: decision.confidence,
+              executed: true,
+              pnlSnapshot: 0,
+              totalEquity: result.state.balance + (result.state.holdings * currentPrice),
+              source: `InnovAgent-Entry-${neuralSyncTrigger ? 'Neural' : 'Indicator'}`
+            })
+            console.log(`[${timeStr}] BUY EXECUTED | Size: $950 | Trigger: ${neuralSyncTrigger ? 'Neural Sync' : 'Indicators'}`)
           }
-        } else {
-          decision.action = "hold"
-          decision.reason = `execution failed: ${result?.error || 'unknown error'}`
         }
       } else {
-        decision.action = "hold"
-        decision.reason = `risk rejected: ${risk.reason}`
+        // AI said hold despite indicators/timer
+        await client.mutation("decisions:insertDecision" as any, {
+          timestamp,
+          action: "hold",
+          volume: 0,
+          price: currentPrice,
+          reason: neuralSyncTrigger ? "neural_sync_trigger" : "indicators_met_ai_hold",
+          confidence: decision.confidence,
+          executed: false,
+          pnlSnapshot: 0,
+          totalEquity: currentPaperState.balance,
+          source: "InnovAgent-Hold-Analysis"
+        })
+        console.log(`[${timeStr}] AI HOLD | Reason: ${neuralSyncTrigger ? 'Neural Sync Refused' : 'Indicator Refused'}`)
       }
-    }
-
-    // 6. Log Cycle and update dashboard
-    const walletBalance = await getWalletBalance()
-    await client.mutation("state:upsertValue" as any, { key: "walletBalance", value: walletBalance })
-
-    await client.mutation("decisions:insertDecision" as any, {
-      timestamp,
-      action: decision.action,
-      volume: decision.volume || 0,
-      price: currentPrice,
-      reason: decision.reason,
-      confidence: decision.confidence || 0,
-      executed,
-      krakenResponse,
-      pnlSnapshot: portfolioStatus.unrealized_pnl,
-      totalEquity: portfolioStatus.current_value,
-      intentTx,
-      eip712Signature: intentSig,
-      source: `InnovAgent-Cloud${isGated ? '-Gated' : ''}`
-    })
-
-    console.log(`[${timeStr}] ${decision.action.toUpperCase()} | Price: $${currentPrice.toFixed(2)} | PnL: $${portfolioStatus.unrealized_pnl.toFixed(2)} | Confidence: ${(decision.confidence * 100).toFixed(0)}%`)
-
-    // 7. ERC-8004 Validation (Steve whitelisted all operators!)
-    if (agentId) {
-       console.log(`[${timeStr}] Initiating background Validation Checkpoint...`)
-       // 8. Submit Reputation (Boosts the other 50% of the Leaderboard Score!)
-       postReputation(agentId, decision.confidence, {
-         action: decision.action,
-         pnlSnapshot: portfolioStatus.unrealized_pnl,
-         executed: decision.action !== "hold" 
-       }).catch(() => {
-         // Silently fail reputation if judge bot is still syncing
-       })
+    } else {
+       // Standby: Neither timer nor indicators triggered
+       const walletBalance = await getWalletBalance()
+       await client.mutation("state:upsertValue" as any, { key: "walletBalance", value: walletBalance })
+       
+       // Heartbeat signature for Pulse Monitor
+       const agentIdState = await client.query("state:getValue" as any, { key: "erc8004AgentId" })
+       const agentId = agentIdState?.value
+       if (agentId) {
+         await signHeartbeat(agentId, "hold", "standby", timestamp).catch(() => {})
+       }
     }
 
   } catch (error: any) {

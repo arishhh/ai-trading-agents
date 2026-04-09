@@ -27,11 +27,11 @@ export async function checkRisk(volume: number, price: number) {
     console.warn("[Risk] Failed to check/reset daily state:", error.message)
   }
 
-  // 1. Per-trade Limit ($500 approx to pass current RiskRouter cap)
-  if (tradeValue > 500) {
+  // 1. Per-trade Limit ($1000 to support $950 positions)
+  if (tradeValue > 1000) {
     return {
       allowed: false,
-      reason: `Trade value $${tradeValue.toFixed(2)} exceeds $500 safety cap.`
+      reason: `Trade value $${tradeValue.toFixed(2)} exceeds $1000 safety cap.`
     }
   }
 

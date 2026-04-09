@@ -8,7 +8,6 @@ dotenv.config()
 const AGENT_REGISTRY_ADDRESS = "0x97b07dDc405B0c28B17559aFFE63BdB3632d0ca3"
 const HACKATHON_VAULT_ADDRESS = "0x0E7CD8ef9743FEcf94f9103033a044caBD45fC90"
 const RISK_ROUTER_ADDRESS = "0xd6A6952545FF6E6E6681c2d15C59f9EB8F40FdBC"
-const VALIDATION_REGISTRY_ADDRESS = "0x92bF63E5C7Ac6980f237a7164Ab413BE226187F1"
 const REPUTATION_REGISTRY_ADDRESS = "0x423a9904e39537a9997fbaF0f220d79D7d545763"
 
 const CHAIN_ID = 11155111 // Sepolia
@@ -70,10 +69,6 @@ const VAULT_ABI = [
 const RISK_ROUTER_ABI = [
   "function submitTradeIntent((uint256 agentId, address agentWallet, string pair, string action, uint256 amountUsdScaled, uint256 maxSlippageBps, uint256 nonce, uint256 deadline) intent, bytes signature) external",
   "function getIntentNonce(uint256 agentId) external view returns (uint256)"
-]
-
-const VALIDATION_REGISTRY_ABI = [
-  "function postEIP712Attestation(uint256 agentId, bytes32 checkpointHash, uint8 score, string notes) external"
 ]
 
 const REPUTATION_REGISTRY_ABI = [
@@ -262,48 +257,6 @@ export async function submitTradeIntent(
     return { hash: tx.hash, signature }
   } catch (e) {
     console.error("ERC-8004: Trade intent submission failed:", e)
-    return null
-  }
-}
-
-/**
- * 4. Post Checkpoint
- */
-export async function postCheckpoint(
-  agentId: string,
-  decision: any,
-  confidence: number,
-  pnlSnapshot: number
-): Promise<string | null> {
-  const signer = getSigner()
-  if (!signer || !agentId) return null
-
-  const validator = new ethers.Contract(VALIDATION_REGISTRY_ADDRESS, VALIDATION_REGISTRY_ABI, signer)
-  
-  try {
-    // Generate a reasoning hash
-    const reasoningHash = ethers.keccak256(ethers.toUtf8Bytes(decision.reason || "Autonomous AI decision"))
-    
-    // We use a simplified checkpoint hash for validation scoring
-    const checkpointHash = ethers.solidityPackedKeccak256(
-      ["uint256", "uint256", "string", "string", "bytes32"],
-      [BigInt(agentId), BigInt(Date.now()), decision.action, reasoningHash, ethers.randomBytes(32)]
-    )
-
-    const tx = await validator.postEIP712Attestation(
-      BigInt(agentId),
-      checkpointHash,
-      Math.floor(confidence * 100), // Score 0-100
-      decision.reason?.slice(0, 200) || "Neural decision posted"
-    )
-    console.log(`ERC-8004: Checkpoint Posted: ${tx.hash}`)
-    return tx.hash
-  } catch (e: any) {
-    if (e.code === 'INSUFFICIENT_FUNDS') {
-      console.error("ERC-8004: Checkpoint failed due to INSUFFICIENT_FUNDS. Please fund your wallet!")
-    } else {
-      console.error("ERC-8004: Checkpoint failed:", e)
-    }
     return null
   }
 }
