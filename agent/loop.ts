@@ -39,13 +39,34 @@ async function runCycle() {
     let currentPaperState: kraken.PaperState = paperStateState?.value || { balance: 100000, holdings: 0, total_trades: 0, avg_price: 0 }
     
     const posEntryTimeState = await client.query("state:getValue" as any, { key: "positionEntryTime" })
-    const entryTime = posEntryTimeState?.value
+    let entryTime = posEntryTimeState?.value
     const isPositionOpen = currentPaperState.holdings > 0
+
+    // STALE STATE RECOVERY: If holding but no timestamp, try to recover from history
+    if (isPositionOpen && !entryTime) {
+      const recent = await client.query("decisions:getLatestTrades" as any, { count: 5 })
+      const lastBuy = recent?.find((d: any) => d.action === "buy")
+      if (lastBuy) {
+        entryTime = lastBuy.timestamp
+        await client.mutation("state:upsertValue" as any, { key: "positionEntryTime", value: entryTime })
+        console.log(`[${timeStr}] 🛠️ RECOVERED: Found entry time in history: ${new Date(entryTime).toLocaleTimeString()}`)
+      } else {
+        // Fallback: Start timer NOW if no history found
+        entryTime = timestamp
+        await client.mutation("state:upsertValue" as any, { key: "positionEntryTime", value: entryTime })
+        console.log(`[${timeStr}] ⚠️ FALLBACK: No entry history found. Starting 60-min timer NOW.`)
+      }
+    }
+
+    if (isPositionOpen) {
+      console.log(`[${timeStr}] Position Check: EntryTime=${entryTime ? new Date(entryTime).toLocaleTimeString() : 'MISSING'}`)
+    }
 
     // --- STEP 3: If position IS open -> run exit checks ---
     if (isPositionOpen) {
       const pnlPct = (currentPrice - currentPaperState.avg_price) / currentPaperState.avg_price
       const heldDurationMs = timestamp - (entryTime || timestamp)
+      const heldMinutes = Math.floor(heldDurationMs / 60000)
       
       let exitTriggered = false
       let exitReason = ""
@@ -126,7 +147,7 @@ async function runCycle() {
           eip712Signature: heartbeatSig,
           source: "InnovAgent-Monitoring"
         })
-        console.log(`[${timeStr}] Monitoring: PnL ${(pnlPct * 100).toFixed(2)}% | Reason: ${monitorReason}`)
+        console.log(`[${timeStr}] Monitoring: PnL ${(pnlPct * 100).toFixed(2)}% | Held: ${heldMinutes} min | Reason: ${monitorReason}`)
         return
       }
     }
@@ -195,7 +216,7 @@ async function runCycle() {
               totalEquity: result.state.balance + (result.state.holdings * currentPrice),
               source: `InnovAgent-Entry-${neuralSyncTrigger ? 'Neural' : 'Indicator'}`
             })
-            console.log(`[${timeStr}] BUY EXECUTED | Size: $950 | Trigger: ${neuralSyncTrigger ? 'Neural Sync' : 'Indicators'}`)
+            console.log(`[${timeStr}] BUY EXECUTED | Size: $950 | Entry Time Stored: ${new Date(timestamp).toLocaleTimeString()}`)
           }
         }
       } else {
