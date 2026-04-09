@@ -135,11 +135,11 @@ async function runCycle() {
           
           // Boost reputation after execution
           if (agentId) {
-            await postReputation(agentId, decision.confidence, { 
+            postReputation(agentId, decision.confidence, { 
               action: decision.action, 
               pnlSnapshot: portfolioStatus.unrealized_pnl,
               executed: true 
-            })
+            }).catch(e => console.warn(`[ERC-8004] Reputation Posting failed: ${e.message}`))
           }
         } else {
           decision.action = "hold"
@@ -171,13 +171,15 @@ async function runCycle() {
       source: `InnovAgent-Cloud${isGated ? '-Gated' : ''}`
     })
 
-    // 7. ERC-8004 Validation Checkpoint (The Attendance Taker)
-    if (agentId) {
-       console.log(`[${timeStr}] Posting Validation Checkpoint to Sepolia...`)
-       await postCheckpoint(agentId, decision, decision.confidence, portfolioStatus.unrealized_pnl)
-    }
-
     console.log(`[${timeStr}] ${decision.action.toUpperCase()} | Price: $${currentPrice.toFixed(2)} | PnL: $${portfolioStatus.unrealized_pnl.toFixed(2)} | Confidence: ${(decision.confidence * 100).toFixed(0)}%`)
+
+    // 7. ERC-8004 Validation Checkpoint (Background - Don't wait)
+    if (agentId) {
+       console.log(`[${timeStr}] Initiating background Validation Checkpoint...`)
+       postCheckpoint(agentId, decision, decision.confidence, portfolioStatus.unrealized_pnl).catch(e => {
+         console.warn(`[ERC-8004] Background Checkpoint failed: ${e.message}`)
+       })
+    }
 
   } catch (error: any) {
     console.error(`[${timeStr}] CYCLE ERROR:`, error)
