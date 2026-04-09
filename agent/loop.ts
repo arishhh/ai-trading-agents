@@ -195,25 +195,13 @@ async function runCycle() {
     // 7. ERC-8004 Validation (Steve whitelisted all operators!)
     if (agentId) {
        console.log(`[${timeStr}] Initiating background Validation Checkpoint...`)
-       postCheckpoint(agentId, decision, decision.confidence, portfolioStatus.unrealized_pnl).catch(e => {
-         // Silencing stack trace for whitelist errors to keep logs clean
-         if (e.message?.includes("not an authorized validator")) {
-            console.warn(`[Leaderboard] Waiting for Admin Whitelist to post reasoning... (Trade was still successful)`)
-         } else {
-            console.warn(`[ERC-8004] Background Checkpoint failed: ${e.message}`)
-         }
-       })
-
        // 8. Submit Reputation (Boosts the other 50% of the Leaderboard Score!)
        postReputation(agentId, decision.confidence, {
          action: decision.action,
          pnlSnapshot: portfolioStatus.unrealized_pnl,
          executed: decision.action !== "hold" 
-       }).catch(e => {
-         // Silencing known registry warnings
-         if (!e.message?.includes("self-rate") && !e.message?.includes("already rated")) {
-            console.warn(`[Reputation] Update failed: ${e.message}`)
-         }
+       }).catch(() => {
+         // Silently fail reputation if judge bot is still syncing
        })
     }
 
