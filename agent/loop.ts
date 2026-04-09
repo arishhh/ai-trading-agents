@@ -69,7 +69,8 @@ async function runCycle() {
     const rsiTrigger = signals && (signals.rsi < 40 || signals.rsi > 65)
     // 10/20 = 50% trend shift (relaxed from 60%)
     const trendTrigger = (greenCount >= 10 && currentPaperState.holdings === 0) || (redCount >= 10 && currentPaperState.holdings > 0)
-    const profitTrigger = pnlPct >= 0.01 || pnlPct <= -0.01 // Lowered profit/loss triggers from 2.5% to 1%
+    // PROFIT TARGET: 1.25% or -1.0% stop-loss for high frequency
+    const profitTrigger = pnlPct >= 0.0125 || pnlPct <= -0.01 
 
     let decision: any
     let isGated = false
@@ -100,11 +101,22 @@ async function runCycle() {
       }
     }
 
-    // 5. Normalization & Execution
+    // 5. Normalization & Execution - CRITICAL: $480 cap to pass $500 limit
     if (typeof decision.volume === 'number') {
-      decision.volume = Math.min(decision.volume, 20000 / currentPrice)
+      decision.volume = Math.min(decision.volume, 480 / currentPrice)
     } else {
-      decision.volume = 20000 / currentPrice
+      decision.volume = 480 / currentPrice
+    }
+
+    // STRICT GATING: One trade at a time for Leaderboard accuracy
+    if (decision.action === "buy" && currentPaperState.holdings > 0) {
+      console.log(`[${timeStr}] Skipping BUY: Already holding ${currentPaperState.holdings.toFixed(5)} BTC. Ensuring leaderboard sync.`)
+      decision.action = "hold"
+      decision.reason = "Position already open. Waiting for SELL trigger."
+    } else if (decision.action === "sell" && currentPaperState.holdings === 0) {
+      console.log(`[${timeStr}] Skipping SELL: No holdings detected.`)
+      decision.action = "hold"
+      decision.reason = "Nothing to sell. Waiting for BUY trigger."
     }
 
     let intentSig: string | undefined
@@ -180,15 +192,13 @@ async function runCycle() {
 
     console.log(`[${timeStr}] ${decision.action.toUpperCase()} | Price: $${currentPrice.toFixed(2)} | PnL: $${portfolioStatus.unrealized_pnl.toFixed(2)} | Confidence: ${(decision.confidence * 100).toFixed(0)}%`)
 
-    // 7. ERC-8004 Validation (The signatures in insertDecision handle this!)
-    /* 
+    // 7. ERC-8004 Validation (Steve whitelisted all operators!)
     if (agentId) {
        console.log(`[${timeStr}] Initiating background Validation Checkpoint...`)
        postCheckpoint(agentId, decision, decision.confidence, portfolioStatus.unrealized_pnl).catch(e => {
          console.warn(`[ERC-8004] Background Checkpoint failed: ${e.message}`)
        })
     }
-    */
 
   } catch (error: any) {
     console.error(`[${timeStr}] CYCLE ERROR:`, error)
@@ -202,6 +212,11 @@ async function main() {
   console.log("--- ACTIVATE: Hackathon Boost Mode (V3) ---")
   
   // 1. Start Heartbeat Loop immediately (Crash-Proof)
+  // 1. Force Clean Slate for "Boost Mode V3" (One-time reset to sync with rejected on-chain intents)
+  const resetConfig = { balance: 100000, holdings: 0, total_trades: 0, avg_price: 0 }
+  await client.mutation("state:upsertValue" as any, { key: "paperTradingState", value: resetConfig })
+  console.log("[Lifecycle] State hard-reset to $100,000 to clear rejected $20k trades.")
+
   const interval = parseInt(process.env.LOOP_INTERVAL_MS || "300000")
   console.log(`[Lifecycle] Starting 5-minute cycle loop (Interval: ${interval}ms)`)
   
