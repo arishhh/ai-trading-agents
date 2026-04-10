@@ -3,7 +3,7 @@ import * as kraken from "./kraken"
 import * as claude from "./claude"
 import * as prism from "./prism"
 import { checkRisk } from "./risk"
-import { registerAgent, claimAllocation, submitTradeIntent, postReputation, signHeartbeat, getAgentAddress, getWalletBalance } from "./erc8004"
+import { registerAgent, claimAllocation, submitTradeIntent, postReputation, signHeartbeat, getAgentAddress, getWalletBalance, postCheckpoint } from "./erc8004"
 import dotenv from "dotenv"
 import http from "http"
 
@@ -102,6 +102,7 @@ async function runCycle() {
             const intent = await submitTradeIntent(agentId, "sell", "XBTUSD", volume, currentPrice).catch(() => {})
             intentSig = (intent as any)?.signature
             postReputation(agentId, 1.0, { action: "sell", pnlSnapshot: (pnlPct * 100), executed: true }).catch(() => {})
+            postCheckpoint(agentId, { action: "sell", reason: exitReason }, 1.0, (pnlPct * 100)).catch(() => {})
           }
 
           // Log to Convex
@@ -132,6 +133,7 @@ async function runCycle() {
         
         if (agentId) {
           heartbeatSig = await signHeartbeat(agentId, "hold", monitorReason, timestamp).catch(() => undefined) || undefined
+          postCheckpoint(agentId, { action: "hold", reason: monitorReason }, 0.5, (pnlPct * 100)).catch(() => {})
         }
 
         await client.mutation("decisions:insertDecision" as any, {
@@ -202,6 +204,7 @@ async function runCycle() {
             if (agentId) {
               await submitTradeIntent(agentId, "buy", "XBTUSD", volume, currentPrice).catch(() => {})
               postReputation(agentId, decision.confidence, { action: "buy", pnlSnapshot: 0, executed: true }).catch(() => {})
+              postCheckpoint(agentId, decision, decision.confidence, 0).catch(() => {})
             }
 
             await client.mutation("decisions:insertDecision" as any, {
@@ -228,6 +231,7 @@ async function runCycle() {
         
         if (agentId) {
           heartbeatSig = await signHeartbeat(agentId, "hold", reason, timestamp).catch(() => undefined) || undefined
+          postCheckpoint(agentId, { action: "hold", reason: reason }, decision.confidence, 0).catch(() => {})
         }
 
         await client.mutation("decisions:insertDecision" as any, {
@@ -257,6 +261,7 @@ async function runCycle() {
        
        if (agentId) {
          heartbeatSig = await signHeartbeat(agentId, "hold", "standby", timestamp).catch(() => undefined) || undefined
+         postCheckpoint(agentId, { action: "hold", reason: "standby" }, 0.5, 0).catch(() => {})
        }
 
        await client.mutation("decisions:insertDecision" as any, {
