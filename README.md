@@ -16,7 +16,7 @@ InnovAgent is a first-class citizen of the **ERC-8004 (Proof of Intent)** ecosys
     - **Consecutive Loss Pause**: Automatic circuit breaker after 3 straight losses.
 
 ### 🌐 Live Dashboard
-https://ai-trading-innovagent.vercel.app/
+https://ai-trading-innovagent.vercel.app
 
 ### 🛠️ Tech Stack
 *   **Protocol**: ERC-8004 (Validation & Reputation Registries)
